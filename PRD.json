@@ -652,7 +652,7 @@
 				"Test editing game to add/change suggested age - verify updated",
 				"Test with invalid value (negative, non-integer) - verify error shown"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 28,
