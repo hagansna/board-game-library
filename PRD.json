@@ -750,7 +750,7 @@
 				"Test editing game to update fields",
 				"Test star rating click interaction"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 32,
