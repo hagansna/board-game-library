@@ -140,7 +140,7 @@
 				"Refresh page - verify game persists",
 				"Check database - verify game record with correct user_id"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 7,

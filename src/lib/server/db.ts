@@ -8,13 +8,21 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function getDatabaseUrl(): string {
-	if (process.env.DATABASE_URL) {
-		return process.env.DATABASE_URL;
-	}
+	const envUrl = process.env.DATABASE_URL;
 
-	// Resolve to the project root dev.db file
+	// Resolve to the project root
 	const currentDir = dirname(fileURLToPath(import.meta.url));
 	const projectRoot = resolve(currentDir, '..', '..', '..');
+
+	if (envUrl) {
+		// Handle relative file: URLs by resolving them from project root
+		if (envUrl.startsWith('file:./')) {
+			const relativePath = envUrl.replace('file:./', '');
+			return `file:${resolve(projectRoot, relativePath)}`;
+		}
+		return envUrl;
+	}
+
 	return `file:${resolve(projectRoot, 'dev.db')}`;
 }
 

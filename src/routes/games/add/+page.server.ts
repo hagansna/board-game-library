@@ -14,8 +14,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, parent }) => {
-		const { user } = await parent();
+	default: async ({ request, locals }) => {
+		const user = locals.user;
 
 		// Redirect to login if not authenticated
 		if (!user) {
