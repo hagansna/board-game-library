@@ -62,10 +62,14 @@ FROM THE IMAGE (visible on the box):
 - Play Time: Minimum and maximum play time in minutes
 
 FROM YOUR KNOWLEDGE (if you recognize the game):
+- Publisher: The company that published the game (if not visible)
+- Year: The year the game was published (if not visible)
+- Player Count: Minimum and maximum number of players (if not visible)
+- Play Time: Minimum and maximum play time in minutes (if not visible)
 - Description: A brief 1-2 sentence summary of what the game is about and how it plays
 - Categories: Game categories/tags (e.g., "strategy", "party", "cooperative", "family", "deck-building", "worker-placement", "area-control")
-- BGG Rating: The approximate BoardGameGeek average rating (0-10 scale, one decimal place)
-- BGG Rank: The approximate BoardGameGeek overall ranking (integer)
+- BGG Rating: The BoardGameGeek average rating (0-10 scale, one decimal place) - verify from boardgamegeek.com
+- BGG Rank: The BoardGameGeek overall ranking (integer) - verify from boardgamegeek.com
 
 Respond with ONLY a valid JSON object containing an array of games (no markdown, no code blocks, just the JSON):
 {
@@ -95,6 +99,7 @@ IMPORTANT:
 - Use "medium" confidence if the image is somewhat unclear but you can make a reasonable guess.
 - Use "low" confidence if the game is very unclear, partially obscured, or you're unsure.
 - For description, categories, bggRating, and bggRank: Only provide values if you RECOGNIZE the game. If you don't recognize it, set these to null.
+- BGG Rating and BGG Rank should be verified from boardgamegeek.com for accuracy.
 - BGG Rating should be between 1.0 and 10.0 with one decimal place.
 - BGG Rank should be a positive integer.
 
