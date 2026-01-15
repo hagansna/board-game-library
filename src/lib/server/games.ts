@@ -219,3 +219,42 @@ export async function deleteGame(supabase: SupabaseClient, gameId: string): Prom
 
 	return true;
 }
+
+/**
+ * Update the play count for a game (increment or decrement)
+ * RLS ensures user can only update their own games
+ */
+export async function updatePlayCount(
+	supabase: SupabaseClient,
+	gameId: string,
+	delta: number
+): Promise<{ playCount: number } | null> {
+	// First get the current play count
+	const { data: game, error: fetchError } = await supabase
+		.from('games')
+		.select('play_count')
+		.eq('id', gameId)
+		.single();
+
+	if (fetchError || !game) {
+		console.error('Error fetching game for play count update:', fetchError);
+		return null;
+	}
+
+	const currentCount = game.play_count ?? 0;
+	const newCount = Math.max(0, currentCount + delta); // Ensure count doesn't go below 0
+
+	const { data: updated, error: updateError } = await supabase
+		.from('games')
+		.update({ play_count: newCount })
+		.eq('id', gameId)
+		.select('play_count')
+		.single();
+
+	if (updateError || !updated) {
+		console.error('Error updating play count:', updateError);
+		return null;
+	}
+
+	return { playCount: updated.play_count ?? 0 };
+}

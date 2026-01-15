@@ -1,6 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { getUserGames, deleteGame } from '$lib/server/games';
+import { getUserGames, deleteGame, updatePlayCount } from '$lib/server/games';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
 	const { user } = await parent();
@@ -40,5 +40,49 @@ export const actions: Actions = {
 		}
 
 		return { success: true };
+	},
+
+	incrementPlayCount: async ({ request, locals }) => {
+		// Check authentication
+		if (!locals.user) {
+			throw redirect(302, '/auth/login');
+		}
+
+		const formData = await request.formData();
+		const gameId = formData.get('gameId');
+
+		if (!gameId || typeof gameId !== 'string') {
+			return fail(400, { error: 'Game ID is required' });
+		}
+
+		const result = await updatePlayCount(locals.supabase, gameId, 1);
+
+		if (!result) {
+			return fail(404, { error: 'Game not found or you do not have permission to update it' });
+		}
+
+		return { success: true, playCount: result.playCount };
+	},
+
+	decrementPlayCount: async ({ request, locals }) => {
+		// Check authentication
+		if (!locals.user) {
+			throw redirect(302, '/auth/login');
+		}
+
+		const formData = await request.formData();
+		const gameId = formData.get('gameId');
+
+		if (!gameId || typeof gameId !== 'string') {
+			return fail(400, { error: 'Game ID is required' });
+		}
+
+		const result = await updatePlayCount(locals.supabase, gameId, -1);
+
+		if (!result) {
+			return fail(404, { error: 'Game not found or you do not have permission to update it' });
+		}
+
+		return { success: true, playCount: result.playCount };
 	}
 };

@@ -53,6 +53,15 @@
 	let expandedModalOpen = $state(false);
 	let modalImageError = $state(false);
 
+	// Local state for play count that can be updated without closing modal
+	let localPlayCount = $state(playCount ?? 0);
+	let isUpdatingPlayCount = $state(false);
+
+	// Sync local state when prop changes (e.g., after page data reload)
+	$effect(() => {
+		localPlayCount = playCount ?? 0;
+	});
+
 	function handleImageError() {
 		imageError = true;
 	}
@@ -552,54 +561,146 @@
 			{/if}
 
 			<!-- Personal Stats Section -->
-			{#if playCount != null || personalRating != null || review}
-				<div class="space-y-4 rounded-lg border bg-card p-4">
-					<h3 class="text-sm font-medium text-muted-foreground">Your Personal Stats</h3>
+			<div class="space-y-4 rounded-lg border bg-card p-4">
+				<h3 class="text-sm font-medium text-muted-foreground">Your Personal Stats</h3>
 
-					<!-- Play Count -->
-					{#if playCount != null}
-						<div class="flex items-center gap-2">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								width="20"
-								height="20"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								class="text-muted-foreground"
+				<!-- Play Count with +/- buttons -->
+				<div class="flex items-center gap-3">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="text-muted-foreground"
+					>
+						<polygon points="6 3 20 12 6 21 6 3" />
+					</svg>
+					<div class="flex items-center gap-2">
+						<form
+							method="POST"
+							action="?/decrementPlayCount"
+							use:enhance={() => {
+								isUpdatingPlayCount = true;
+								return async ({ result }) => {
+									isUpdatingPlayCount = false;
+									if (result.type === 'success' && result.data?.playCount !== undefined) {
+										localPlayCount = result.data.playCount as number;
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="gameId" value={id} />
+							<Button
+								type="submit"
+								variant="outline"
+								size="sm"
+								class="h-8 w-8 p-0"
+								disabled={isUpdatingPlayCount || localPlayCount <= 0}
+								aria-label="Decrement play count"
 							>
-								<polygon points="6 3 20 12 6 21 6 3" />
-							</svg>
-							<span class="text-lg font-semibold">{playCount}</span>
-							<span class="text-sm text-muted-foreground"
-								>{playCount === 1 ? 'play' : 'plays'}</span
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<line x1="5" x2="19" y1="12" y2="12" />
+								</svg>
+							</Button>
+						</form>
+						<span class="min-w-[3rem] text-center text-lg font-semibold">
+							{#if isUpdatingPlayCount}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="mx-auto animate-spin"
+								>
+									<path d="M21 12a9 9 0 1 1-6.219-8.56" />
+								</svg>
+							{:else}
+								{localPlayCount}
+							{/if}
+						</span>
+						<form
+							method="POST"
+							action="?/incrementPlayCount"
+							use:enhance={() => {
+								isUpdatingPlayCount = true;
+								return async ({ result }) => {
+									isUpdatingPlayCount = false;
+									if (result.type === 'success' && result.data?.playCount !== undefined) {
+										localPlayCount = result.data.playCount as number;
+									}
+								};
+							}}
+						>
+							<input type="hidden" name="gameId" value={id} />
+							<Button
+								type="submit"
+								variant="outline"
+								size="sm"
+								class="h-8 w-8 p-0"
+								disabled={isUpdatingPlayCount}
+								aria-label="Increment play count"
 							>
-						</div>
-					{/if}
-
-					<!-- Personal Rating -->
-					{#if personalRating != null}
-						<div class="flex items-center gap-2">
-							<span class="text-sm text-muted-foreground">Your Rating:</span>
-							<StarRating value={personalRating} readonly={true} size="md" />
-							<span class="ml-1 text-sm text-muted-foreground">{personalRating}/5</span>
-						</div>
-					{/if}
-
-					<!-- Personal Review -->
-					{#if review}
-						<div>
-							<h4 class="mb-1 text-sm font-medium text-muted-foreground">Your Review</h4>
-							<p class="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-								{review}
-							</p>
-						</div>
-					{/if}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+								>
+									<line x1="12" x2="12" y1="5" y2="19" />
+									<line x1="5" x2="19" y1="12" y2="12" />
+								</svg>
+							</Button>
+						</form>
+					</div>
+					<span class="text-sm text-muted-foreground">
+						{localPlayCount === 1 ? 'play' : 'plays'}
+					</span>
 				</div>
-			{/if}
+
+				<!-- Personal Rating -->
+				{#if personalRating != null}
+					<div class="flex items-center gap-2">
+						<span class="text-sm text-muted-foreground">Your Rating:</span>
+						<StarRating value={personalRating} readonly={true} size="md" />
+						<span class="ml-1 text-sm text-muted-foreground">{personalRating}/5</span>
+					</div>
+				{/if}
+
+				<!-- Personal Review -->
+				{#if review}
+					<div>
+						<h4 class="mb-1 text-sm font-medium text-muted-foreground">Your Review</h4>
+						<p class="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+							{review}
+						</p>
+					</div>
+				{/if}
+			</div>
 		</div>
 
 		<Dialog.Footer class="mt-6 flex-col gap-2 sm:flex-row">
