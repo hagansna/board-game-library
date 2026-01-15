@@ -3,6 +3,27 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			// Prevent FOUC by applying theme before page renders
+			(function () {
+				const stored = localStorage.getItem('theme-preference');
+				const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+				let isDark = false;
+				if (stored === 'dark') {
+					isDark = true;
+				} else if (stored === 'light') {
+					isDark = false;
+				} else {
+					// system preference or no stored preference
+					isDark = prefersDark;
+				}
+
+				if (isDark) {
+					document.documentElement.classList.add('dark');
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

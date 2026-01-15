@@ -119,7 +119,12 @@
 		<Dialog.Root bind:open={deleteDialogOpen}>
 			<Dialog.Trigger>
 				{#snippet child({ props })}
-					<Button {...props} variant="outline" size="sm" class="text-destructive hover:bg-destructive hover:text-destructive-foreground">
+					<Button
+						{...props}
+						variant="outline"
+						size="sm"
+						class="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							width="14"
@@ -146,7 +151,8 @@
 				<Dialog.Header>
 					<Dialog.Title>Delete Game</Dialog.Title>
 					<Dialog.Description>
-						Are you sure you want to delete "{title}" from your library? This action cannot be undone.
+						Are you sure you want to delete "{title}" from your library? This action cannot be
+						undone.
 					</Dialog.Description>
 				</Dialog.Header>
 				<Dialog.Footer>
