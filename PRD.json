@@ -673,7 +673,7 @@
 				"Test game with suggested age - verify displays correctly",
 				"Test game without suggested age - verify no empty display"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 29,
