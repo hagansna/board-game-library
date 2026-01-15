@@ -34,3 +34,10 @@ vite.config.ts.timestamp-*
 # Temporary files
 progress.txt
 ralph-*.sh
+
+# Database
+*.db
+*.db-journal
+
+# Prisma
+/generated/prisma
