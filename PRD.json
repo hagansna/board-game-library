@@ -586,7 +586,7 @@
 				"Combine filter with search - verify both work together",
 				"Combine filter with sort - verify all three work together"
 			],
-			"passes": false
+			"passes": true
 		}
 	]
 }
