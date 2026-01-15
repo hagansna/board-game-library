@@ -276,7 +276,7 @@
 							type="text"
 							placeholder="e.g., strategy, trading, family (comma-separated)"
 							value={form?.categories ??
-								(data.game.categories ? JSON.parse(data.game.categories).join(', ') : '')}
+								(data.game.categories ? data.game.categories.join(', ') : '')}
 						/>
 						<p class="text-xs text-muted-foreground">Separate categories with commas</p>
 					</div>
