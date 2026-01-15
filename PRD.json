@@ -723,7 +723,7 @@
 				"Update transformInput() to map new fields",
 				"Verify existing games still load correctly"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 31,
