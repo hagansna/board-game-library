@@ -458,7 +458,7 @@
 				"Test 'Deselect All' - verify all checkboxes become unchecked",
 				"Edit one game's title before adding - verify edit is preserved"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 20,
