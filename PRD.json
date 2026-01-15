@@ -93,7 +93,7 @@
 				"Verify user is still logged in (no re-login required)",
 				"Verify session eventually expires after defined duration"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 5,
