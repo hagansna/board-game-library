@@ -18,6 +18,9 @@
 	let isAnalyzing = $state(false);
 	let isAddingToLibrary = $state(false);
 
+	// Track last processed form to prevent infinite effect loops
+	let lastProcessedForm: typeof form = null;
+
 	// State for uploaded images data (from server)
 	let uploadedImages = $state<Array<{ imageData: string; mimeType: string; fileName: string }>>([]);
 
@@ -348,77 +351,81 @@
 
 	// Handle form response updates
 	$effect(() => {
-		if (form) {
-			isUploading = false;
-			isAnalyzing = false;
-			isAddingToLibrary = false;
+		// Skip if no form or already processed this form response
+		if (!form || form === lastProcessedForm) {
+			return;
+		}
 
-			// Store uploaded images data for batch analysis
-			if (form.success && form.images && Array.isArray(form.images)) {
-				uploadedImages = form.images;
-				// Initialize analysis results for all uploaded images
-				const newResults = new Map<
-					number,
-					{
-						games: ExtractedGameData[];
-						gameCount: number;
-						error: string | null;
-						status: 'pending' | 'analyzing' | 'done' | 'error';
-					}
-				>();
-				for (let i = 0; i < form.images.length; i++) {
-					newResults.set(i, { games: [], gameCount: 0, error: null, status: 'pending' });
+		lastProcessedForm = form;
+		isUploading = false;
+		isAnalyzing = false;
+		isAddingToLibrary = false;
+
+		// Store uploaded images data for batch analysis
+		if (form.success && form.images && Array.isArray(form.images)) {
+			uploadedImages = form.images;
+			// Initialize analysis results for all uploaded images
+			const newResults = new Map<
+				number,
+				{
+					games: ExtractedGameData[];
+					gameCount: number;
+					error: string | null;
+					status: 'pending' | 'analyzing' | 'done' | 'error';
 				}
-				analysisResults = newResults;
+			>();
+			for (let i = 0; i < form.images.length; i++) {
+				newResults.set(i, { games: [], gameCount: 0, error: null, status: 'pending' });
 			}
+			analysisResults = newResults;
+		}
 
-			// Handle batch analysis results (now with multi-game support)
-			if (form.batchAnalyzed && form.results && Array.isArray(form.results)) {
-				const newResults = new Map(analysisResults);
-				for (let i = 0; i < form.results.length; i++) {
-					const result = form.results[i];
-					if (result.success && result.games && result.games.length > 0) {
-						// Filter out games without valid titles
-						const validGames = result.games.filter(
-							(g: ExtractedGameData) => !isAIRecognitionFailed(g)
-						);
-						if (validGames.length > 0) {
-							newResults.set(i, {
-								games: validGames,
-								gameCount: validGames.length,
-								error: null,
-								status: 'done'
-							});
-						} else {
-							newResults.set(i, {
-								games: [],
-								gameCount: 0,
-								error: 'Could not identify any games in this image',
-								status: 'error'
-							});
-						}
+		// Handle batch analysis results (now with multi-game support)
+		if (form.batchAnalyzed && form.results && Array.isArray(form.results)) {
+			const newResults = new Map(analysisResults);
+			for (let i = 0; i < form.results.length; i++) {
+				const result = form.results[i];
+				if (result.success && result.games && result.games.length > 0) {
+					// Filter out games without valid titles
+					const validGames = result.games.filter(
+						(g: ExtractedGameData) => !isAIRecognitionFailed(g)
+					);
+					if (validGames.length > 0) {
+						newResults.set(i, {
+							games: validGames,
+							gameCount: validGames.length,
+							error: null,
+							status: 'done'
+						});
 					} else {
 						newResults.set(i, {
 							games: [],
 							gameCount: 0,
-							error: result.error || 'Analysis failed',
+							error: 'Could not identify any games in this image',
 							status: 'error'
 						});
 					}
+				} else {
+					newResults.set(i, {
+						games: [],
+						gameCount: 0,
+						error: result.error || 'Analysis failed',
+						status: 'error'
+					});
 				}
-				analysisResults = newResults;
-				showBatchReview = true;
 			}
+			analysisResults = newResults;
+			showBatchReview = true;
+		}
 
-			// Handle successful game addition - redirect to library
-			if (form.added) {
-				goto(resolve('/games'));
-			}
+		// Handle successful game addition - redirect to library
+		if (form.added) {
+			goto(resolve('/games'));
+		}
 
-			// Handle add to library error
-			if (form.addError) {
-				// Keep the form open with the error displayed
-			}
+		// Handle add to library error
+		if (form.addError) {
+			// Keep the form open with the error displayed
 		}
 	});
 
