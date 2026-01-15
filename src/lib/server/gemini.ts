@@ -79,7 +79,7 @@ export async function analyzeGameImage(
 		const genAI = getGeminiClient();
 
 		// Use Gemini Flash for fast, cost-effective vision analysis
-		const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+		const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
 		// Prepare the image part
 		const imagePart: Part = {
