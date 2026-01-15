@@ -278,7 +278,7 @@
 				"Verify game is added to library successfully",
 				"Verify uploaded image handling (saved, discarded, or optional)"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 13,
