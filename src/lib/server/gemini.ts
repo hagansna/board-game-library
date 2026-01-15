@@ -16,6 +16,7 @@ export interface ExtractedGameData {
 	categories: string[] | null;
 	bggRating: number | null;
 	bggRank: number | null;
+	suggestedAge: number | null;
 }
 
 // Result for multi-game detection from a single image
@@ -66,6 +67,7 @@ FROM YOUR KNOWLEDGE (if you recognize the game):
 - Year: The year the game was published (if not visible)
 - Player Count: Minimum and maximum number of players (if not visible)
 - Play Time: Minimum and maximum play time in minutes (if not visible)
+- Suggested Age: The minimum recommended age for players (e.g., 8, 10, 12, 14) - this is usually printed on the box as "Ages X+" or you can determine from game complexity
 - Description: A brief 1-2 sentence summary of what the game is about and how it plays
 - Categories: Game categories/tags (e.g., "strategy", "party", "cooperative", "family", "deck-building", "worker-placement", "area-control")
 - BGG Rating: The BoardGameGeek average rating (0-10 scale, one decimal place) - verify from boardgamegeek.com
@@ -83,6 +85,7 @@ Respond with ONLY a valid JSON object containing an array of games (no markdown,
       "playTimeMin": 30 or null if not visible,
       "playTimeMax": 60 or null if not visible,
       "confidence": "high" or "medium" or "low",
+      "suggestedAge": 10 or null if not visible and unknown,
       "description": "A brief description of the game" or null if you don't recognize it,
       "categories": ["strategy", "trading"] or null if you don't recognize it,
       "bggRating": 7.2 or null if unknown,
@@ -98,7 +101,8 @@ IMPORTANT:
 - Use "high" confidence if the game title is clearly visible and identifiable.
 - Use "medium" confidence if the image is somewhat unclear but you can make a reasonable guess.
 - Use "low" confidence if the game is very unclear, partially obscured, or you're unsure.
-- For description, categories, bggRating, and bggRank: Only provide values if you RECOGNIZE the game. If you don't recognize it, set these to null.
+- For description, categories, bggRating, bggRank, and suggestedAge: Only provide values if you can see them on the box OR you RECOGNIZE the game. If you don't recognize it and can't see the info, set these to null.
+- Suggested Age should be a positive integer representing the minimum age (e.g., 8 for "Ages 8+").
 - BGG Rating and BGG Rank should be verified from boardgamegeek.com for accuracy.
 - BGG Rating should be between 1.0 and 10.0 with one decimal place.
 - BGG Rank should be a positive integer.
@@ -246,6 +250,12 @@ export function parseSingleGame(parsed: Record<string, unknown>): ExtractedGameD
 		bggRank = Math.floor(parsed.bggRank as number);
 	}
 
+	// Validate and normalize suggestedAge (must be positive integer, typically 1-21)
+	let suggestedAge: number | null = null;
+	if (typeof parsed.suggestedAge === 'number' && (parsed.suggestedAge as number) > 0) {
+		suggestedAge = Math.floor(parsed.suggestedAge as number);
+	}
+
 	// Validate and normalize the data
 	return {
 		title: typeof parsed.title === 'string' ? (parsed.title as string).trim() : null,
@@ -277,7 +287,8 @@ export function parseSingleGame(parsed: Record<string, unknown>): ExtractedGameD
 			typeof parsed.description === 'string' ? (parsed.description as string).trim() : null,
 		categories,
 		bggRating,
-		bggRank
+		bggRank,
+		suggestedAge
 	};
 }
 
@@ -342,6 +353,7 @@ function parseGeminiResponse(responseText: string): ExtractedGameData {
 		description: null,
 		categories: null,
 		bggRating: null,
-		bggRank: null
+		bggRank: null,
+		suggestedAge: null
 	};
 }
