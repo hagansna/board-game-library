@@ -803,7 +803,7 @@
 				"Test decrementing play count (verify doesn't go below 0)",
 				"Verify library view shows updated count after modal close"
 			],
-			"passes": false
+			"passes": true
 		}
 	]
 }
