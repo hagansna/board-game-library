@@ -231,7 +231,7 @@
 				"Test with obscure game - verify AI still attempts extraction",
 				"Test with non-game image - verify graceful handling"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 11,
