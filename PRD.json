@@ -71,7 +71,7 @@
 				"Attempt to access /games or other protected route",
 				"Verify redirect to login page (protected route inaccessible)"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 4,
