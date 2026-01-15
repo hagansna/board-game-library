@@ -273,6 +273,23 @@
 					</div>
 
 					<div class="space-y-2">
+						<Label for="suggestedAge">Suggested Age</Label>
+						<Input
+							id="suggestedAge"
+							name="suggestedAge"
+							type="number"
+							min="1"
+							max="21"
+							placeholder="e.g., 10"
+							value={form?.suggestedAge ?? ''}
+						/>
+						<p class="text-xs text-muted-foreground">Minimum recommended age (e.g., 8 for "Ages 8+")</p>
+						{#if form?.errors?.suggestedAge}
+							<p class="text-sm text-destructive">{form.errors.suggestedAge}</p>
+						{/if}
+					</div>
+
+					<div class="space-y-2">
 						<Label>BoardGameGeek Info</Label>
 						<div class="flex items-center gap-4">
 							<div class="flex-1 space-y-1">

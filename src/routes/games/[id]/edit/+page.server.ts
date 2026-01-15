@@ -55,6 +55,7 @@ export const actions: Actions = {
 		const categoriesInput = formData.get('categories')?.toString().trim() ?? '';
 		const bggRatingStr = formData.get('bggRating')?.toString().trim() ?? '';
 		const bggRankStr = formData.get('bggRank')?.toString().trim() ?? '';
+		const suggestedAgeStr = formData.get('suggestedAge')?.toString().trim() ?? '';
 
 		const errors: {
 			title?: string;
@@ -64,6 +65,7 @@ export const actions: Actions = {
 			boxArt?: string;
 			bggRating?: string;
 			bggRank?: string;
+			suggestedAge?: string;
 		} = {};
 
 		// Validate title (required)
@@ -159,6 +161,12 @@ export const actions: Actions = {
 			errors.bggRank = 'Rank must be at least 1';
 		}
 
+		// Validate and parse suggested age
+		const suggestedAge = suggestedAgeStr ? parseInt(suggestedAgeStr, 10) : null;
+		if (suggestedAgeStr && (isNaN(suggestedAge!) || suggestedAge! < 1 || suggestedAge! > 21)) {
+			errors.suggestedAge = 'Suggested age must be between 1 and 21';
+		}
+
 		// Return validation errors
 		if (Object.keys(errors).length > 0) {
 			return fail(400, {
@@ -173,6 +181,7 @@ export const actions: Actions = {
 				categories: categoriesInput,
 				bggRating: bggRatingStr,
 				bggRank: bggRankStr,
+				suggestedAge: suggestedAgeStr,
 				errors
 			});
 		}
@@ -190,7 +199,8 @@ export const actions: Actions = {
 				description,
 				categories,
 				bggRating,
-				bggRank
+				bggRank,
+				suggestedAge
 			});
 
 			if (!updatedGame) {
@@ -213,6 +223,7 @@ export const actions: Actions = {
 				categories: categoriesInput,
 				bggRating: bggRatingStr,
 				bggRank: bggRankStr,
+				suggestedAge: suggestedAgeStr,
 				error: 'An error occurred while updating the game. Please try again.'
 			});
 		}
