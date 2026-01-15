@@ -11,6 +11,11 @@ export interface ExtractedGameData {
 	playTimeMin: number | null;
 	playTimeMax: number | null;
 	confidence: 'high' | 'medium' | 'low';
+	// AI-enriched fields based on board game knowledge
+	description: string | null;
+	categories: string[] | null;
+	bggRating: number | null;
+	bggRank: number | null;
 }
 
 export interface AIAnalysisResult {
@@ -29,13 +34,26 @@ function getGeminiClient() {
 }
 
 // The prompt for extracting game information
-const EXTRACTION_PROMPT = `You are an expert at identifying board games from images of their boxes. Analyze the provided image of a board game box and extract the following information:
+const EXTRACTION_PROMPT = `You are an expert at identifying board games from images of their boxes. You have extensive knowledge about board games, including their descriptions, categories, and BoardGameGeek (BGG) ratings.
 
-1. **Title**: The name of the board game
-2. **Publisher**: The company that published the game
-3. **Year**: The year the game was published (if visible)
-4. **Player Count**: Minimum and maximum number of players
-5. **Play Time**: Minimum and maximum play time in minutes
+Analyze the provided image of a board game box and extract information from TWO sources:
+1. **Visible Information**: What you can see on the box (title, publisher, year, player count, play time)
+2. **Your Knowledge**: If you recognize the game, provide additional information from your board game expertise
+
+Extract and provide the following information:
+
+FROM THE IMAGE (visible on the box):
+- Title: The name of the board game
+- Publisher: The company that published the game
+- Year: The year the game was published (if visible)
+- Player Count: Minimum and maximum number of players
+- Play Time: Minimum and maximum play time in minutes
+
+FROM YOUR KNOWLEDGE (if you recognize the game):
+- Description: A brief 1-2 sentence summary of what the game is about and how it plays
+- Categories: Game categories/tags (e.g., "strategy", "party", "cooperative", "family", "deck-building", "worker-placement", "area-control")
+- BGG Rating: The approximate BoardGameGeek average rating (0-10 scale, one decimal place)
+- BGG Rank: The approximate BoardGameGeek overall ranking (integer)
 
 Respond with ONLY a valid JSON object in this exact format (no markdown, no code blocks, just the JSON):
 {
@@ -46,12 +64,20 @@ Respond with ONLY a valid JSON object in this exact format (no markdown, no code
   "maxPlayers": 4 or null if not visible,
   "playTimeMin": 30 or null if not visible,
   "playTimeMax": 60 or null if not visible,
-  "confidence": "high" or "medium" or "low"
+  "confidence": "high" or "medium" or "low",
+  "description": "A brief description of the game" or null if you don't recognize it,
+  "categories": ["strategy", "trading"] or null if you don't recognize it,
+  "bggRating": 7.2 or null if unknown,
+  "bggRank": 150 or null if unknown
 }
 
-Use "high" confidence if the game title is clearly visible and identifiable.
-Use "medium" confidence if the image is somewhat unclear but you can make a reasonable guess.
-Use "low" confidence if the image is very unclear or doesn't appear to show a board game.
+IMPORTANT:
+- Use "high" confidence if the game title is clearly visible and identifiable.
+- Use "medium" confidence if the image is somewhat unclear but you can make a reasonable guess.
+- Use "low" confidence if the image is very unclear or doesn't appear to show a board game.
+- For description, categories, bggRating, and bggRank: Only provide values if you RECOGNIZE the game and have knowledge about it. If you don't recognize the game or aren't sure, set these to null.
+- BGG Rating should be between 1.0 and 10.0 with one decimal place.
+- BGG Rank should be a positive integer.
 
 If this is not an image of a board game box, return:
 {
@@ -62,7 +88,11 @@ If this is not an image of a board game box, return:
   "maxPlayers": null,
   "playTimeMin": null,
   "playTimeMax": null,
-  "confidence": "low"
+  "confidence": "low",
+  "description": null,
+  "categories": null,
+  "bggRating": null,
+  "bggRank": null
 }`;
 
 /**
@@ -170,6 +200,30 @@ function parseGeminiResponse(responseText: string): ExtractedGameData {
 		// Parse the JSON
 		const parsed = JSON.parse(cleanedText);
 
+		// Validate and normalize categories array
+		let categories: string[] | null = null;
+		if (Array.isArray(parsed.categories)) {
+			const filteredCategories = parsed.categories
+				.filter((c: unknown) => typeof c === 'string' && c.trim().length > 0)
+				.map((c: string) => c.trim());
+			if (filteredCategories.length > 0) {
+				categories = filteredCategories;
+			}
+		}
+
+		// Validate and normalize bggRating (must be between 0 and 10)
+		let bggRating: number | null = null;
+		if (typeof parsed.bggRating === 'number' && parsed.bggRating >= 0 && parsed.bggRating <= 10) {
+			// Round to one decimal place
+			bggRating = Math.round(parsed.bggRating * 10) / 10;
+		}
+
+		// Validate and normalize bggRank (must be positive integer)
+		let bggRank: number | null = null;
+		if (typeof parsed.bggRank === 'number' && parsed.bggRank > 0) {
+			bggRank = Math.floor(parsed.bggRank);
+		}
+
 		// Validate and normalize the data
 		return {
 			title: typeof parsed.title === 'string' ? parsed.title.trim() : null,
@@ -191,7 +245,11 @@ function parseGeminiResponse(responseText: string): ExtractedGameData {
 				typeof parsed.playTimeMax === 'number' && parsed.playTimeMax > 0
 					? Math.floor(parsed.playTimeMax)
 					: null,
-			confidence: ['high', 'medium', 'low'].includes(parsed.confidence) ? parsed.confidence : 'low'
+			confidence: ['high', 'medium', 'low'].includes(parsed.confidence) ? parsed.confidence : 'low',
+			description: typeof parsed.description === 'string' ? parsed.description.trim() : null,
+			categories,
+			bggRating,
+			bggRank
 		};
 	} catch {
 		// If parsing fails, return empty data with low confidence
@@ -204,7 +262,11 @@ function parseGeminiResponse(responseText: string): ExtractedGameData {
 			maxPlayers: null,
 			playTimeMin: null,
 			playTimeMax: null,
-			confidence: 'low'
+			confidence: 'low',
+			description: null,
+			categories: null,
+			bggRating: null,
+			bggRank: null
 		};
 	}
 }

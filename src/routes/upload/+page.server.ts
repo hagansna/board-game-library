@@ -129,12 +129,34 @@ export const actions: Actions = {
 		const playTimeMinStr = formData.get('playTimeMin') as string;
 		const playTimeMaxStr = formData.get('playTimeMax') as string;
 
+		// AI-enriched fields
+		const description = (formData.get('description') as string)?.trim() || null;
+		const categoriesStr = (formData.get('categories') as string)?.trim() || null;
+		const bggRatingStr = formData.get('bggRating') as string;
+		const bggRankStr = formData.get('bggRank') as string;
+
 		// Parse numeric values
 		const year = yearStr ? parseInt(yearStr, 10) : null;
 		const minPlayers = minPlayersStr ? parseInt(minPlayersStr, 10) : null;
 		const maxPlayers = maxPlayersStr ? parseInt(maxPlayersStr, 10) : null;
 		const playTimeMin = playTimeMinStr ? parseInt(playTimeMinStr, 10) : null;
 		const playTimeMax = playTimeMaxStr ? parseInt(playTimeMaxStr, 10) : null;
+
+		// Parse AI-enriched numeric values
+		const bggRating = bggRatingStr ? parseFloat(bggRatingStr) : null;
+		const bggRank = bggRankStr ? parseInt(bggRankStr, 10) : null;
+
+		// Parse categories from comma-separated string to JSON
+		let categories: string | null = null;
+		if (categoriesStr) {
+			const categoriesArray = categoriesStr
+				.split(',')
+				.map((c) => c.trim())
+				.filter((c) => c.length > 0);
+			if (categoriesArray.length > 0) {
+				categories = JSON.stringify(categoriesArray);
+			}
+		}
 
 		// Validation errors object
 		const errors: Record<string, string> = {};
@@ -166,6 +188,20 @@ export const actions: Actions = {
 			}
 		}
 
+		// Validate BGG rating (must be between 0 and 10)
+		if (bggRating !== null) {
+			if (isNaN(bggRating) || bggRating < 0 || bggRating > 10) {
+				errors.bggRating = 'BGG Rating must be between 0 and 10';
+			}
+		}
+
+		// Validate BGG rank (must be positive integer)
+		if (bggRank !== null) {
+			if (isNaN(bggRank) || bggRank < 1) {
+				errors.bggRank = 'BGG Rank must be a positive number';
+			}
+		}
+
 		// Return validation errors if any
 		if (Object.keys(errors).length > 0) {
 			return fail(400, {
@@ -178,7 +214,11 @@ export const actions: Actions = {
 				minPlayers: minPlayersStr,
 				maxPlayers: maxPlayersStr,
 				playTimeMin: playTimeMinStr,
-				playTimeMax: playTimeMaxStr
+				playTimeMax: playTimeMaxStr,
+				description,
+				categories: categoriesStr,
+				bggRating: bggRatingStr,
+				bggRank: bggRankStr
 			});
 		}
 
@@ -190,7 +230,11 @@ export const actions: Actions = {
 				minPlayers,
 				maxPlayers,
 				playTimeMin,
-				playTimeMax
+				playTimeMax,
+				description,
+				categories,
+				bggRating,
+				bggRank
 			});
 
 			// Return success - the client will redirect
@@ -207,7 +251,11 @@ export const actions: Actions = {
 				minPlayers: minPlayersStr,
 				maxPlayers: maxPlayersStr,
 				playTimeMin: playTimeMinStr,
-				playTimeMax: playTimeMaxStr
+				playTimeMax: playTimeMaxStr,
+				description,
+				categories: categoriesStr,
+				bggRating: bggRatingStr,
+				bggRank: bggRankStr
 			});
 		}
 	}

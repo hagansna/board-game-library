@@ -37,6 +37,11 @@
 	let editMaxPlayers = $state('');
 	let editPlayTimeMin = $state('');
 	let editPlayTimeMax = $state('');
+	// AI-enriched fields
+	let editDescription = $state('');
+	let editCategories = $state('');
+	let editBggRating = $state('');
+	let editBggRank = $state('');
 
 	// File input reference
 	let fileInput: HTMLInputElement;
@@ -158,6 +163,10 @@
 		editMaxPlayers = '';
 		editPlayTimeMin = '';
 		editPlayTimeMax = '';
+		editDescription = '';
+		editCategories = '';
+		editBggRating = '';
+		editBggRank = '';
 	}
 
 	// Cancel manual entry and return to upload/analysis state
@@ -171,6 +180,10 @@
 		editMaxPlayers = '';
 		editPlayTimeMin = '';
 		editPlayTimeMax = '';
+		editDescription = '';
+		editCategories = '';
+		editBggRating = '';
+		editBggRank = '';
 	}
 
 	// Format file size for display
@@ -212,6 +225,11 @@
 		editMaxPlayers = data.maxPlayers?.toString() ?? '';
 		editPlayTimeMin = data.playTimeMin?.toString() ?? '';
 		editPlayTimeMax = data.playTimeMax?.toString() ?? '';
+		// AI-enriched fields
+		editDescription = data.description ?? '';
+		editCategories = data.categories?.join(', ') ?? '';
+		editBggRating = data.bggRating?.toString() ?? '';
+		editBggRank = data.bggRank?.toString() ?? '';
 	}
 
 	// Check if AI result indicates a failed recognition (low confidence with no title)
@@ -959,6 +977,93 @@
 								<p class="text-sm text-destructive">{form.errors.playTime}</p>
 							{/if}
 						</div>
+
+						<!-- AI-Enriched Fields Section -->
+						{#if editDescription || editCategories || editBggRating || editBggRank}
+							<div class="border-t pt-6">
+								<div class="mb-4 flex items-center gap-2">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="text-primary"
+									>
+										<path
+											d="M12 2a4 4 0 0 0-4 4c0 1.1.45 2.1 1.17 2.83L2 16v6h6l7.17-7.17A4 4 0 1 0 12 2z"
+										/>
+										<circle cx="12" cy="6" r="1" />
+									</svg>
+									<span class="text-sm font-medium text-muted-foreground"
+										>AI-Enriched Information</span
+									>
+								</div>
+
+								<div class="space-y-4">
+									<div class="space-y-2">
+										<Label for="description">Description</Label>
+										<textarea
+											id="description"
+											name="description"
+											placeholder="Brief description of the game"
+											bind:value={editDescription}
+											rows="3"
+											class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+										></textarea>
+									</div>
+
+									<div class="space-y-2">
+										<Label for="categories">Categories</Label>
+										<Input
+											id="categories"
+											name="categories"
+											type="text"
+											placeholder="e.g., strategy, trading, family (comma-separated)"
+											bind:value={editCategories}
+										/>
+										<p class="text-xs text-muted-foreground">Separate multiple categories with commas</p>
+									</div>
+
+									<div class="grid grid-cols-2 gap-4">
+										<div class="space-y-2">
+											<Label for="bggRating">BGG Rating</Label>
+											<Input
+												id="bggRating"
+												name="bggRating"
+												type="number"
+												placeholder="e.g., 7.5"
+												bind:value={editBggRating}
+												min="0"
+												max="10"
+												step="0.1"
+											/>
+											{#if form?.errors?.bggRating}
+												<p class="text-sm text-destructive">{form.errors.bggRating}</p>
+											{/if}
+										</div>
+										<div class="space-y-2">
+											<Label for="bggRank">BGG Rank</Label>
+											<Input
+												id="bggRank"
+												name="bggRank"
+												type="number"
+												placeholder="e.g., 150"
+												bind:value={editBggRank}
+												min="1"
+											/>
+											{#if form?.errors?.bggRank}
+												<p class="text-sm text-destructive">{form.errors.bggRank}</p>
+											{/if}
+										</div>
+									</div>
+								</div>
+							</div>
+						{/if}
 
 						<div class="flex gap-4 pt-4">
 							<Button type="button" variant="outline" onclick={clearFile} class="flex-1">

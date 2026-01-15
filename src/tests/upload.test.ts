@@ -478,7 +478,11 @@ describe('AI Results Review - Story 11', () => {
 				maxPlayers: 5,
 				playTimeMin: 30,
 				playTimeMax: 60,
-				confidence: 'high'
+				confidence: 'high',
+				description: 'Build train routes across North America.',
+				categories: ['family', 'route-building'],
+				bggRating: 7.4,
+				bggRank: 178
 			};
 
 			// These values should be directly usable in form inputs
@@ -500,7 +504,11 @@ describe('AI Results Review - Story 11', () => {
 				maxPlayers: null,
 				playTimeMin: null,
 				playTimeMax: null,
-				confidence: 'medium'
+				confidence: 'medium',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 
 			// Null values should become empty strings for form inputs
@@ -520,7 +528,11 @@ describe('AI Results Review - Story 11', () => {
 				maxPlayers: null,
 				playTimeMin: null,
 				playTimeMax: null,
-				confidence: 'low'
+				confidence: 'low',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 
 			// All fields should be empty/null
@@ -622,7 +634,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: null,
 				playTimeMin: null,
 				playTimeMax: null,
-				confidence: 'low'
+				confidence: 'low',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 			expect(isAIRecognitionFailed(failedData)).toBe(true);
 		});
@@ -636,7 +652,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: 4,
 				playTimeMin: 30,
 				playTimeMax: 60,
-				confidence: 'medium'
+				confidence: 'medium',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 			expect(isAIRecognitionFailed(emptyTitleData)).toBe(true);
 		});
@@ -650,7 +670,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: 4,
 				playTimeMin: 30,
 				playTimeMax: 60,
-				confidence: 'low'
+				confidence: 'low',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 			expect(isAIRecognitionFailed(whitespaceData)).toBe(true);
 		});
@@ -664,7 +688,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: 4,
 				playTimeMin: 60,
 				playTimeMax: 120,
-				confidence: 'high'
+				confidence: 'high',
+				description: 'Trade resources and build settlements.',
+				categories: ['strategy', 'trading'],
+				bggRating: 7.1,
+				bggRank: 437
 			};
 			expect(isAIRecognitionFailed(successData)).toBe(false);
 		});
@@ -678,7 +706,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: null,
 				playTimeMin: null,
 				playTimeMax: null,
-				confidence: 'medium'
+				confidence: 'medium',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 			expect(isAIRecognitionFailed(partialData)).toBe(false);
 		});
@@ -869,7 +901,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: null,
 				playTimeMin: null,
 				playTimeMax: null,
-				confidence: 'low'
+				confidence: 'low',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 
 			// Verify this is detected as failure
@@ -902,7 +938,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: null,
 				playTimeMin: null,
 				playTimeMax: null,
-				confidence: 'low'
+				confidence: 'low',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 			expect(isAIRecognitionFailed(firstAttempt)).toBe(true);
 
@@ -915,7 +955,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: 5,
 				playTimeMin: 30,
 				playTimeMax: 60,
-				confidence: 'high'
+				confidence: 'high',
+				description: 'Build train routes across North America.',
+				categories: ['family', 'route-building'],
+				bggRating: 7.4,
+				bggRank: 178
 			};
 			expect(isAIRecognitionFailed(secondAttempt)).toBe(false);
 
@@ -944,7 +988,11 @@ describe('Manual Fallback - Story 12', () => {
 				maxPlayers: null,
 				playTimeMin: null,
 				playTimeMax: null,
-				confidence: 'medium'
+				confidence: 'medium',
+				description: null,
+				categories: null,
+				bggRating: null,
+				bggRank: null
 			};
 
 			// This is NOT a failure (title exists)
