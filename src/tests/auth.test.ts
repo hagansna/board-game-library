@@ -172,3 +172,64 @@ describe('Session Management', () => {
 		expect(session).toBeNull();
 	});
 });
+
+describe('User Login', () => {
+	const testEmail = 'logintest@example.com';
+	const testPassword = 'securepassword123';
+
+	beforeAll(async () => {
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		// Create a test user for login tests
+		await registerUser(testEmail, testPassword);
+	});
+
+	afterAll(async () => {
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		await prisma.$disconnect();
+	});
+
+	it('should verify correct password for existing user', async () => {
+		const user = await findUserByEmail(testEmail);
+		expect(user).toBeDefined();
+
+		const isValid = await verifyPassword(testPassword, user!.passwordHash);
+		expect(isValid).toBe(true);
+	});
+
+	it('should reject incorrect password for existing user', async () => {
+		const user = await findUserByEmail(testEmail);
+		expect(user).toBeDefined();
+
+		const isValid = await verifyPassword('wrongpassword123', user!.passwordHash);
+		expect(isValid).toBe(false);
+	});
+
+	it('should return null when user does not exist', async () => {
+		const user = await findUserByEmail('nonexistent@example.com');
+		expect(user).toBeNull();
+	});
+
+	it('should create session after successful login credentials verification', async () => {
+		const user = await findUserByEmail(testEmail);
+		expect(user).toBeDefined();
+
+		const isValid = await verifyPassword(testPassword, user!.passwordHash);
+		expect(isValid).toBe(true);
+
+		// Simulate login flow: create session after password verification
+		const sessionId = await createSession(user!.id);
+		expect(sessionId).toBeDefined();
+
+		const session = await validateSession(sessionId);
+		expect(session).toBeDefined();
+		expect(session?.user.email).toBe(testEmail);
+	});
+
+	it('should handle case-insensitive email lookup for login', async () => {
+		const user = await findUserByEmail(testEmail.toUpperCase());
+		expect(user).toBeDefined();
+		expect(user?.email).toBe(testEmail);
+	});
+});
