@@ -7,6 +7,59 @@
 	import { resolve } from '$app/paths';
 
 	let { data, form } = $props();
+
+	// Get initial box art URL from form (on validation error) or from existing game data
+	let boxArtPreview = $state<string | null>(form?.boxArtUrl || data.game.boxArtUrl || null);
+	let boxArtUrlInput = $state(
+		form?.boxArtUrl || (data.game.boxArtUrl?.startsWith('/') ? '' : data.game.boxArtUrl) || ''
+	);
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let removeBoxArt = $state(false);
+
+	function handleFileSelect(event: Event) {
+		const target = event.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (file) {
+			// Clear URL input when file is selected
+			boxArtUrlInput = '';
+			removeBoxArt = false;
+			// Create preview URL
+			boxArtPreview = URL.createObjectURL(file);
+		}
+	}
+
+	function handleUrlInput(event: Event) {
+		const target = event.target as HTMLInputElement;
+		boxArtUrlInput = target.value;
+		removeBoxArt = false;
+		// Clear file input when URL is entered
+		if (fileInput) {
+			fileInput.value = '';
+		}
+		if (boxArtUrlInput) {
+			boxArtPreview = boxArtUrlInput;
+		} else {
+			boxArtPreview = null;
+		}
+	}
+
+	function clearBoxArt() {
+		boxArtUrlInput = '';
+		boxArtPreview = null;
+		removeBoxArt = true;
+		if (fileInput) {
+			fileInput.value = '';
+		}
+	}
+
+	$effect(() => {
+		return () => {
+			// Cleanup object URL on component destroy
+			if (boxArtPreview && boxArtPreview.startsWith('blob:')) {
+				URL.revokeObjectURL(boxArtPreview);
+			}
+		};
+	});
 </script>
 
 <div class="min-h-screen bg-background p-8">
@@ -38,7 +91,8 @@
 				<Card.Description>Update the information for your board game.</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<form method="POST" use:enhance class="space-y-6">
+				<form method="POST" enctype="multipart/form-data" use:enhance class="space-y-6">
+					<input type="hidden" name="removeBoxArt" value={removeBoxArt ? 'true' : 'false'} />
 					{#if form?.error}
 						<div class="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
 							{form.error}
@@ -129,6 +183,76 @@
 						</div>
 						{#if form?.errors?.playTime}
 							<p class="text-sm text-destructive">{form.errors.playTime}</p>
+						{/if}
+					</div>
+
+					<div class="space-y-4">
+						<Label>Box Art (optional)</Label>
+						<div class="space-y-3">
+							<div class="space-y-2">
+								<Label for="boxArtUrl" class="text-sm text-muted-foreground">Image URL</Label>
+								<Input
+									id="boxArtUrl"
+									name="boxArtUrl"
+									type="url"
+									placeholder="https://example.com/image.jpg"
+									value={boxArtUrlInput}
+									oninput={handleUrlInput}
+								/>
+							</div>
+							<div class="flex items-center gap-2">
+								<div class="h-px flex-1 bg-border"></div>
+								<span class="text-xs text-muted-foreground">OR</span>
+								<div class="h-px flex-1 bg-border"></div>
+							</div>
+							<div class="space-y-2">
+								<Label for="boxArtFile" class="text-sm text-muted-foreground">Upload File</Label>
+								<Input
+									id="boxArtFile"
+									name="boxArtFile"
+									type="file"
+									accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+									bind:this={fileInput}
+									onchange={handleFileSelect}
+									class="cursor-pointer"
+								/>
+								<p class="text-xs text-muted-foreground">Max 5MB. JPG, PNG, or WebP.</p>
+							</div>
+						</div>
+						{#if boxArtPreview}
+							<div class="relative mt-4">
+								<img
+									src={boxArtPreview}
+									alt="Box art preview"
+									class="h-48 w-auto rounded-md border object-contain"
+									onerror={() => (boxArtPreview = null)}
+								/>
+								<Button
+									type="button"
+									variant="destructive"
+									size="sm"
+									class="absolute top-2 right-2"
+									onclick={clearBoxArt}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<path d="M18 6 6 18" />
+										<path d="m6 6 12 12" />
+									</svg>
+								</Button>
+							</div>
+						{/if}
+						{#if form?.errors?.boxArt}
+							<p class="text-sm text-destructive">{form.errors.boxArt}</p>
 						{/if}
 					</div>
 

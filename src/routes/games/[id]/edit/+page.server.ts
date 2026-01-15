@@ -1,6 +1,12 @@
 import { fail, redirect, error } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getGameById, updateGame } from '$lib/server/games';
+import {
+	isValidImageUrl,
+	saveBoxArtFile,
+	deleteBoxArtFile,
+	isLocalBoxArt
+} from '$lib/server/boxart';
 
 export const load: PageServerLoad = async ({ parent, params }) => {
 	const { user } = await parent();
@@ -29,6 +35,12 @@ export const actions: Actions = {
 			throw redirect(302, '/auth/login');
 		}
 
+		// Fetch existing game to check old box art
+		const existingGame = await getGameById(params.id, user.id);
+		if (!existingGame) {
+			throw error(404, 'Game not found');
+		}
+
 		const formData = await request.formData();
 		const title = formData.get('title')?.toString().trim() ?? '';
 		const yearStr = formData.get('year')?.toString().trim() ?? '';
@@ -36,8 +48,17 @@ export const actions: Actions = {
 		const maxPlayersStr = formData.get('maxPlayers')?.toString().trim() ?? '';
 		const playTimeMinStr = formData.get('playTimeMin')?.toString().trim() ?? '';
 		const playTimeMaxStr = formData.get('playTimeMax')?.toString().trim() ?? '';
+		const boxArtUrlInput = formData.get('boxArtUrl')?.toString().trim() ?? '';
+		const boxArtFile = formData.get('boxArtFile') as File | null;
+		const removeBoxArt = formData.get('removeBoxArt') === 'true';
 
-		const errors: { title?: string; year?: string; players?: string; playTime?: string } = {};
+		const errors: {
+			title?: string;
+			year?: string;
+			players?: string;
+			playTime?: string;
+			boxArt?: string;
+		} = {};
 
 		// Validate title (required)
 		if (!title) {
@@ -76,6 +97,38 @@ export const actions: Actions = {
 			errors.playTime = 'Minimum play time cannot be greater than maximum play time';
 		}
 
+		// Handle box art
+		let boxArtUrl: string | null = existingGame.boxArtUrl;
+
+		if (removeBoxArt) {
+			// User wants to remove box art
+			if (isLocalBoxArt(existingGame.boxArtUrl)) {
+				await deleteBoxArtFile(existingGame.boxArtUrl!);
+			}
+			boxArtUrl = null;
+		} else if (boxArtFile && boxArtFile.size > 0) {
+			// User uploaded a new file - delete old local file if exists
+			if (isLocalBoxArt(existingGame.boxArtUrl)) {
+				await deleteBoxArtFile(existingGame.boxArtUrl!);
+			}
+			const uploadResult = await saveBoxArtFile(boxArtFile, user.id);
+			if (!uploadResult.success) {
+				errors.boxArt = uploadResult.error || 'Failed to upload box art';
+			} else {
+				boxArtUrl = uploadResult.url || null;
+			}
+		} else if (boxArtUrlInput && boxArtUrlInput !== existingGame.boxArtUrl) {
+			// User provided a new URL - delete old local file if exists
+			if (!isValidImageUrl(boxArtUrlInput)) {
+				errors.boxArt = 'Please enter a valid image URL (http or https)';
+			} else {
+				if (isLocalBoxArt(existingGame.boxArtUrl)) {
+					await deleteBoxArtFile(existingGame.boxArtUrl!);
+				}
+				boxArtUrl = boxArtUrlInput;
+			}
+		}
+
 		// Return validation errors
 		if (Object.keys(errors).length > 0) {
 			return fail(400, {
@@ -85,6 +138,7 @@ export const actions: Actions = {
 				maxPlayers: maxPlayersStr,
 				playTimeMin: playTimeMinStr,
 				playTimeMax: playTimeMaxStr,
+				boxArtUrl: boxArtUrlInput || existingGame.boxArtUrl || '',
 				errors
 			});
 		}
@@ -97,7 +151,8 @@ export const actions: Actions = {
 				minPlayers,
 				maxPlayers,
 				playTimeMin,
-				playTimeMax
+				playTimeMax,
+				boxArtUrl
 			});
 
 			if (!updatedGame) {
@@ -115,6 +170,7 @@ export const actions: Actions = {
 				maxPlayers: maxPlayersStr,
 				playTimeMin: playTimeMinStr,
 				playTimeMax: playTimeMaxStr,
+				boxArtUrl: boxArtUrlInput || existingGame.boxArtUrl || '',
 				error: 'An error occurred while updating the game. Please try again.'
 			});
 		}

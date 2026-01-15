@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createGame } from '$lib/server/games';
+import { isValidImageUrl, saveBoxArtFile } from '$lib/server/boxart';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { user } = await parent();
@@ -29,8 +30,16 @@ export const actions: Actions = {
 		const maxPlayersStr = formData.get('maxPlayers')?.toString().trim() ?? '';
 		const playTimeMinStr = formData.get('playTimeMin')?.toString().trim() ?? '';
 		const playTimeMaxStr = formData.get('playTimeMax')?.toString().trim() ?? '';
+		const boxArtUrlInput = formData.get('boxArtUrl')?.toString().trim() ?? '';
+		const boxArtFile = formData.get('boxArtFile') as File | null;
 
-		const errors: { title?: string; year?: string; players?: string; playTime?: string } = {};
+		const errors: {
+			title?: string;
+			year?: string;
+			players?: string;
+			playTime?: string;
+			boxArt?: string;
+		} = {};
 
 		// Validate title (required)
 		if (!title) {
@@ -69,6 +78,26 @@ export const actions: Actions = {
 			errors.playTime = 'Minimum play time cannot be greater than maximum play time';
 		}
 
+		// Handle box art - file upload takes priority over URL
+		let boxArtUrl: string | null = null;
+
+		if (boxArtFile && boxArtFile.size > 0) {
+			// User uploaded a file
+			const uploadResult = await saveBoxArtFile(boxArtFile, user.id);
+			if (!uploadResult.success) {
+				errors.boxArt = uploadResult.error || 'Failed to upload box art';
+			} else {
+				boxArtUrl = uploadResult.url || null;
+			}
+		} else if (boxArtUrlInput) {
+			// User provided a URL
+			if (!isValidImageUrl(boxArtUrlInput)) {
+				errors.boxArt = 'Please enter a valid image URL (http or https)';
+			} else {
+				boxArtUrl = boxArtUrlInput;
+			}
+		}
+
 		// Return validation errors
 		if (Object.keys(errors).length > 0) {
 			return fail(400, {
@@ -78,6 +107,7 @@ export const actions: Actions = {
 				maxPlayers: maxPlayersStr,
 				playTimeMin: playTimeMinStr,
 				playTimeMax: playTimeMaxStr,
+				boxArtUrl: boxArtUrlInput,
 				errors
 			});
 		}
@@ -90,7 +120,8 @@ export const actions: Actions = {
 				minPlayers,
 				maxPlayers,
 				playTimeMin,
-				playTimeMax
+				playTimeMax,
+				boxArtUrl
 			});
 		} catch {
 			return fail(500, {
@@ -100,6 +131,7 @@ export const actions: Actions = {
 				maxPlayers: maxPlayersStr,
 				playTimeMin: playTimeMinStr,
 				playTimeMax: playTimeMaxStr,
+				boxArtUrl: boxArtUrlInput,
 				error: 'An error occurred while adding the game. Please try again.'
 			});
 		}

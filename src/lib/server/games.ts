@@ -18,6 +18,7 @@ export async function getUserGames(userId: string): Promise<GameWithoutUser[]> {
 			maxPlayers: true,
 			playTimeMin: true,
 			playTimeMax: true,
+			boxArtUrl: true,
 			createdAt: true,
 			updatedAt: true
 		}
@@ -42,6 +43,7 @@ export async function getGameById(gameId: string, userId: string): Promise<GameW
 			maxPlayers: true,
 			playTimeMin: true,
 			playTimeMax: true,
+			boxArtUrl: true,
 			createdAt: true,
 			updatedAt: true
 		}
@@ -61,6 +63,7 @@ export async function createGame(
 		maxPlayers?: number | null;
 		playTimeMin?: number | null;
 		playTimeMax?: number | null;
+		boxArtUrl?: string | null;
 	}
 ): Promise<GameWithoutUser> {
 	const game = await prisma.game.create({
@@ -76,6 +79,7 @@ export async function createGame(
 			maxPlayers: true,
 			playTimeMin: true,
 			playTimeMax: true,
+			boxArtUrl: true,
 			createdAt: true,
 			updatedAt: true
 		}
@@ -97,6 +101,7 @@ export async function updateGame(
 		maxPlayers?: number | null;
 		playTimeMin?: number | null;
 		playTimeMax?: number | null;
+		boxArtUrl?: string | null;
 	}
 ): Promise<GameWithoutUser | null> {
 	// First check if game exists and belongs to user
@@ -122,6 +127,7 @@ export async function updateGame(
 			maxPlayers: true,
 			playTimeMin: true,
 			playTimeMax: true,
+			boxArtUrl: true,
 			createdAt: true,
 			updatedAt: true
 		}
