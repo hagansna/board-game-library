@@ -533,7 +533,7 @@
 				"Search for non-existent game - verify 'No results' message",
 				"Apply a filter, then search - verify both work together"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 23,
