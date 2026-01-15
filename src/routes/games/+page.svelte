@@ -2,6 +2,7 @@
 	import GameCard from '$lib/components/GameCard.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import * as Select from '$lib/components/ui/select';
 	import { resolve } from '$app/paths';
 
 	let { data } = $props();
@@ -9,14 +10,95 @@
 	// Search state
 	let searchQuery = $state('');
 
-	// Filter games based on search query (case-insensitive, partial match)
-	let filteredGames = $derived(
-		searchQuery.trim() === ''
-			? data.games
-			: data.games.filter((game) =>
-					game.title.toLowerCase().includes(searchQuery.toLowerCase().trim())
-				)
-	);
+	// Sort state
+	type SortOption =
+		| 'title-asc'
+		| 'title-desc'
+		| 'year-desc'
+		| 'year-asc'
+		| 'recently-added'
+		| 'players'
+		| 'playtime';
+
+	const sortOptions: { value: SortOption; label: string }[] = [
+		{ value: 'title-asc', label: 'Title A-Z' },
+		{ value: 'title-desc', label: 'Title Z-A' },
+		{ value: 'year-desc', label: 'Year (Newest)' },
+		{ value: 'year-asc', label: 'Year (Oldest)' },
+		{ value: 'recently-added', label: 'Recently Added' },
+		{ value: 'players', label: 'Player Count' },
+		{ value: 'playtime', label: 'Play Time' }
+	];
+
+	let currentSort = $state<SortOption>('title-asc');
+
+	// Get sort label for display
+	let currentSortLabel = $derived(sortOptions.find((opt) => opt.value === currentSort)?.label ?? 'Sort');
+
+	// Sort function for games
+	function sortGames<T extends typeof data.games>(games: T): T {
+		const sorted = [...games];
+		switch (currentSort) {
+			case 'title-asc':
+				sorted.sort((a, b) => a.title.localeCompare(b.title));
+				break;
+			case 'title-desc':
+				sorted.sort((a, b) => b.title.localeCompare(a.title));
+				break;
+			case 'year-desc':
+				// Newest first, null values go to end
+				sorted.sort((a, b) => {
+					if (a.year === null && b.year === null) return 0;
+					if (a.year === null) return 1;
+					if (b.year === null) return -1;
+					return b.year - a.year;
+				});
+				break;
+			case 'year-asc':
+				// Oldest first, null values go to end
+				sorted.sort((a, b) => {
+					if (a.year === null && b.year === null) return 0;
+					if (a.year === null) return 1;
+					if (b.year === null) return -1;
+					return a.year - b.year;
+				});
+				break;
+			case 'recently-added':
+				// Most recent first
+				sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+				break;
+			case 'players':
+				// By min players (ascending), null values go to end
+				sorted.sort((a, b) => {
+					if (a.minPlayers === null && b.minPlayers === null) return 0;
+					if (a.minPlayers === null) return 1;
+					if (b.minPlayers === null) return -1;
+					return a.minPlayers - b.minPlayers;
+				});
+				break;
+			case 'playtime':
+				// By min play time (ascending), null values go to end
+				sorted.sort((a, b) => {
+					if (a.playTimeMin === null && b.playTimeMin === null) return 0;
+					if (a.playTimeMin === null) return 1;
+					if (b.playTimeMin === null) return -1;
+					return a.playTimeMin - b.playTimeMin;
+				});
+				break;
+		}
+		return sorted as T;
+	}
+
+	// Filter games based on search query (case-insensitive, partial match), then sort
+	let filteredGames = $derived.by(() => {
+		const filtered =
+			searchQuery.trim() === ''
+				? data.games
+				: data.games.filter((game) =>
+						game.title.toLowerCase().includes(searchQuery.toLowerCase().trim())
+					);
+		return sortGames(filtered);
+	});
 
 	// Clear search
 	function clearSearch() {
@@ -59,10 +141,10 @@
 			</div>
 		</div>
 
-		<!-- Search Bar -->
+		<!-- Search Bar and Sort -->
 		{#if data.games.length > 0}
-			<div class="mb-6">
-				<div class="relative max-w-md">
+			<div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div class="relative max-w-md flex-1">
 					<!-- Search Icon -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -111,6 +193,23 @@
 							</svg>
 						</button>
 					{/if}
+				</div>
+
+				<!-- Sort Dropdown -->
+				<div class="flex items-center gap-2">
+					<span class="text-sm text-muted-foreground">Sort by:</span>
+					<Select.Root type="single" bind:value={currentSort}>
+						<Select.Trigger class="w-[160px]" aria-label="Sort games by">
+							{currentSortLabel}
+						</Select.Trigger>
+						<Select.Content>
+							{#each sortOptions as option (option.value)}
+								<Select.Item value={option.value} label={option.label}>
+									{option.label}
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 				</div>
 			</div>
 		{/if}
