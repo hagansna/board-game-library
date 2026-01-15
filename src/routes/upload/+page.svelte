@@ -287,14 +287,18 @@
 		let count = 0;
 		for (const result of analysisResults.values()) {
 			if (result.status === 'done' && result.games) {
-				count += result.games.filter(g => !isAIRecognitionFailed(g)).length;
+				count += result.games.filter((g) => !isAIRecognitionFailed(g)).length;
 			}
 		}
 		return count;
 	}
 
 	// Get all games as a flat array with their source image index
-	function getAllGames(): Array<{ imageIndex: number; gameIndex: number; data: ExtractedGameData }> {
+	function getAllGames(): Array<{
+		imageIndex: number;
+		gameIndex: number;
+		data: ExtractedGameData;
+	}> {
 		const allGames: Array<{ imageIndex: number; gameIndex: number; data: ExtractedGameData }> = [];
 		for (const [imageIndex, result] of analysisResults.entries()) {
 			if (result.status === 'done' && result.games) {
@@ -373,7 +377,9 @@
 					const result = form.results[i];
 					if (result.success && result.games && result.games.length > 0) {
 						// Filter out games without valid titles
-						const validGames = result.games.filter((g: ExtractedGameData) => !isAIRecognitionFailed(g));
+						const validGames = result.games.filter(
+							(g: ExtractedGameData) => !isAIRecognitionFailed(g)
+						);
 						if (validGames.length > 0) {
 							newResults.set(i, {
 								games: validGames,
@@ -417,9 +423,57 @@
 	// Track which games are selected for adding to library (key: "imageIndex-gameIndex")
 	let selectedGames = $state<Set<string>>(new Set());
 
+	// Track which game is currently being edited (key: "imageIndex-gameIndex")
+	let editingGameKey = $state<string | null>(null);
+
+	// Editable data for the game being edited in batch mode
+	let batchEditData = $state<ExtractedGameData | null>(null);
+
 	// Generate unique key for a game
 	function getGameKey(imageIndex: number, gameIndex: number): string {
 		return `${imageIndex}-${gameIndex}`;
+	}
+
+	// Start editing a specific game in batch review
+	function startEditingGame(imageIndex: number, gameIndex: number) {
+		const key = getGameKey(imageIndex, gameIndex);
+		const result = analysisResults.get(imageIndex);
+		if (result?.games && result.games[gameIndex]) {
+			editingGameKey = key;
+			batchEditData = { ...result.games[gameIndex] };
+		}
+	}
+
+	// Cancel editing and discard changes
+	function cancelEditingGame() {
+		editingGameKey = null;
+		batchEditData = null;
+	}
+
+	// Save edited game data back to analysisResults
+	function saveEditedGame() {
+		if (!editingGameKey || !batchEditData) return;
+
+		const [imageIndexStr, gameIndexStr] = editingGameKey.split('-');
+		const imageIndex = parseInt(imageIndexStr, 10);
+		const gameIndex = parseInt(gameIndexStr, 10);
+
+		const result = analysisResults.get(imageIndex);
+		if (result?.games && result.games[gameIndex]) {
+			// Update the game in the results
+			const newGames = [...result.games];
+			newGames[gameIndex] = { ...batchEditData };
+
+			const newResults = new Map(analysisResults);
+			newResults.set(imageIndex, {
+				...result,
+				games: newGames
+			});
+			analysisResults = newResults;
+		}
+
+		editingGameKey = null;
+		batchEditData = null;
 	}
 
 	// Initialize selectedGames when results change
@@ -816,7 +870,8 @@
 										<div
 											class="relative aspect-square overflow-hidden rounded border-2 {hasGames
 												? 'border-green-500'
-												: result?.status === 'error' || (result?.status === 'done' && result.gameCount === 0)
+												: result?.status === 'error' ||
+													  (result?.status === 'done' && result.gameCount === 0)
 													? 'border-red-500'
 													: 'border-primary animate-pulse'}"
 										>
@@ -829,12 +884,16 @@
 												<div
 													class="absolute inset-0 flex items-center justify-center bg-green-500/30"
 												>
-													<span class="rounded-full bg-green-600 px-2 py-0.5 text-sm font-bold text-white">
+													<span
+														class="rounded-full bg-green-600 px-2 py-0.5 text-sm font-bold text-white"
+													>
 														{result.gameCount}
 													</span>
 												</div>
 											{:else if result?.status === 'error' || (result?.status === 'done' && result?.gameCount === 0)}
-												<div class="absolute inset-0 flex items-center justify-center bg-red-500/30">
+												<div
+													class="absolute inset-0 flex items-center justify-center bg-red-500/30"
+												>
 													<svg
 														xmlns="http://www.w3.org/2000/svg"
 														width="20"
@@ -868,7 +927,9 @@
 									stroke-linejoin="round"
 									class="mr-2"
 								>
-									<path d="M12 2a4 4 0 0 0-4 4c0 1.1.45 2.1 1.17 2.83L2 16v6h6l7.17-7.17A4 4 0 1 0 12 2z" />
+									<path
+										d="M12 2a4 4 0 0 0-4 4c0 1.1.45 2.1 1.17 2.83L2 16v6h6l7.17-7.17A4 4 0 1 0 12 2z"
+									/>
 									<circle cx="12" cy="6" r="1" />
 								</svg>
 								Analyze {uploadedImages.length > 1 ? 'All' : 'with AI'}
@@ -911,7 +972,8 @@
 					<div class="flex items-center justify-between">
 						<Card.Title>Analysis Results</Card.Title>
 						<span class="rounded-full bg-primary/15 px-3 py-1 text-sm font-medium text-primary">
-							Found {totalGames} game{totalGames !== 1 ? 's' : ''} in {imagesWithGames} of {totalImages} image{totalImages !== 1 ? 's' : ''}
+							Found {totalGames} game{totalGames !== 1 ? 's' : ''} in {imagesWithGames} of {totalImages}
+							image{totalImages !== 1 ? 's' : ''}
 						</span>
 					</div>
 					<Card.Description>
@@ -968,7 +1030,10 @@
 											/>
 										{/if}
 										<div class="min-w-0 flex-1">
-											<p class="truncate text-sm font-medium text-foreground" title={uploadedImage?.fileName}>
+											<p
+												class="truncate text-sm font-medium text-foreground"
+												title={uploadedImage?.fileName}
+											>
 												{uploadedImage?.fileName ?? `Image ${imageIndex + 1}`}
 											</p>
 											{#if hasGames}
@@ -989,43 +1054,229 @@
 											{#each result.games as game, gameIndex}
 												{@const gameKey = getGameKey(imageIndex, gameIndex)}
 												{@const isSelected = selectedGames.has(gameKey)}
-												<div
-													class="flex items-start gap-3 p-3 {isSelected ? 'bg-primary/5' : ''}"
-												>
-													<input
-														type="checkbox"
-														checked={isSelected}
-														onchange={() => toggleGameSelection(imageIndex, gameIndex)}
-														class="mt-1 h-4 w-4 rounded border-input"
-													/>
-													<div class="min-w-0 flex-1">
-														<div class="flex items-start justify-between gap-2">
-															<div class="min-w-0 flex-1">
-																<p class="truncate font-medium text-foreground">
-																	{game.title}
-																</p>
-																<p class="text-sm text-muted-foreground">
-																	{#if game.year}
-																		{game.year}
-																	{/if}
-																	{#if game.minPlayers || game.maxPlayers}
-																		<span class="mx-1">|</span>
-																		{game.minPlayers ?? '?'}-{game.maxPlayers ?? '?'} players
-																	{/if}
-																	{#if game.playTimeMin || game.playTimeMax}
-																		<span class="mx-1">|</span>
-																		{game.playTimeMin ?? '?'}-{game.playTimeMax ?? '?'} min
-																	{/if}
-																</p>
-															</div>
-															<span
-																class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {getConfidenceBadgeClass(game.confidence)}"
+												{@const isEditing = editingGameKey === gameKey}
+
+												{#if isEditing && batchEditData}
+													<!-- Edit mode for this game -->
+													<div class="space-y-4 bg-muted/30 p-4">
+														<div class="flex items-center justify-between">
+															<h4 class="font-medium text-foreground">Edit Game Details</h4>
+															<button
+																type="button"
+																onclick={cancelEditingGame}
+																class="text-muted-foreground hover:text-foreground"
+																aria-label="Cancel editing"
 															>
-																{game.confidence}
-															</span>
+																<svg
+																	xmlns="http://www.w3.org/2000/svg"
+																	width="16"
+																	height="16"
+																	viewBox="0 0 24 24"
+																	fill="none"
+																	stroke="currentColor"
+																	stroke-width="2"
+																	stroke-linecap="round"
+																	stroke-linejoin="round"
+																>
+																	<path d="M18 6 6 18" />
+																	<path d="m6 6 12 12" />
+																</svg>
+															</button>
+														</div>
+
+														<div class="grid gap-4">
+															<div class="space-y-1.5">
+																<Label for="edit-title-{gameKey}"
+																	>Title <span class="text-destructive">*</span></Label
+																>
+																<Input
+																	id="edit-title-{gameKey}"
+																	type="text"
+																	bind:value={batchEditData.title}
+																	placeholder="Game title"
+																/>
+															</div>
+
+															<div class="grid grid-cols-2 gap-4">
+																<div class="space-y-1.5">
+																	<Label for="edit-year-{gameKey}">Year</Label>
+																	<Input
+																		id="edit-year-{gameKey}"
+																		type="number"
+																		value={batchEditData.year ?? ''}
+																		onchange={(e) => {
+																			const val = (e.target as HTMLInputElement).value;
+																			if (batchEditData)
+																				batchEditData.year = val ? parseInt(val, 10) : null;
+																		}}
+																		placeholder="Year"
+																		min="1"
+																		max={new Date().getFullYear() + 1}
+																	/>
+																</div>
+																<div class="space-y-1.5">
+																	<Label for="edit-publisher-{gameKey}">Publisher</Label>
+																	<Input
+																		id="edit-publisher-{gameKey}"
+																		type="text"
+																		bind:value={batchEditData.publisher}
+																		placeholder="Publisher"
+																	/>
+																</div>
+															</div>
+
+															<div class="space-y-1.5">
+																<Label>Player Count</Label>
+																<div class="flex items-center gap-2">
+																	<Input
+																		id="edit-minPlayers-{gameKey}"
+																		type="number"
+																		value={batchEditData.minPlayers ?? ''}
+																		onchange={(e) => {
+																			const val = (e.target as HTMLInputElement).value;
+																			if (batchEditData)
+																				batchEditData.minPlayers = val ? parseInt(val, 10) : null;
+																		}}
+																		placeholder="Min"
+																		min="1"
+																		class="flex-1"
+																	/>
+																	<span class="text-muted-foreground">to</span>
+																	<Input
+																		id="edit-maxPlayers-{gameKey}"
+																		type="number"
+																		value={batchEditData.maxPlayers ?? ''}
+																		onchange={(e) => {
+																			const val = (e.target as HTMLInputElement).value;
+																			if (batchEditData)
+																				batchEditData.maxPlayers = val ? parseInt(val, 10) : null;
+																		}}
+																		placeholder="Max"
+																		min="1"
+																		class="flex-1"
+																	/>
+																</div>
+															</div>
+
+															<div class="space-y-1.5">
+																<Label>Play Time (minutes)</Label>
+																<div class="flex items-center gap-2">
+																	<Input
+																		id="edit-playTimeMin-{gameKey}"
+																		type="number"
+																		value={batchEditData.playTimeMin ?? ''}
+																		onchange={(e) => {
+																			const val = (e.target as HTMLInputElement).value;
+																			if (batchEditData)
+																				batchEditData.playTimeMin = val ? parseInt(val, 10) : null;
+																		}}
+																		placeholder="Min"
+																		min="1"
+																		class="flex-1"
+																	/>
+																	<span class="text-muted-foreground">to</span>
+																	<Input
+																		id="edit-playTimeMax-{gameKey}"
+																		type="number"
+																		value={batchEditData.playTimeMax ?? ''}
+																		onchange={(e) => {
+																			const val = (e.target as HTMLInputElement).value;
+																			if (batchEditData)
+																				batchEditData.playTimeMax = val ? parseInt(val, 10) : null;
+																		}}
+																		placeholder="Max"
+																		min="1"
+																		class="flex-1"
+																	/>
+																</div>
+															</div>
+														</div>
+
+														<div class="flex justify-end gap-2 pt-2">
+															<Button
+																type="button"
+																variant="outline"
+																size="sm"
+																onclick={cancelEditingGame}
+															>
+																Cancel
+															</Button>
+															<Button
+																type="button"
+																size="sm"
+																onclick={saveEditedGame}
+																disabled={!batchEditData.title?.trim()}
+															>
+																Save Changes
+															</Button>
 														</div>
 													</div>
-												</div>
+												{:else}
+													<!-- Display mode for this game -->
+													<div
+														class="flex items-start gap-3 p-3 {isSelected ? 'bg-primary/5' : ''}"
+													>
+														<input
+															type="checkbox"
+															checked={isSelected}
+															onchange={() => toggleGameSelection(imageIndex, gameIndex)}
+															class="mt-1 h-4 w-4 rounded border-input"
+														/>
+														<div class="min-w-0 flex-1">
+															<div class="flex items-start justify-between gap-2">
+																<div class="min-w-0 flex-1">
+																	<p class="truncate font-medium text-foreground">
+																		{game.title}
+																	</p>
+																	<p class="text-sm text-muted-foreground">
+																		{#if game.year}
+																			{game.year}
+																		{/if}
+																		{#if game.minPlayers || game.maxPlayers}
+																			<span class="mx-1">|</span>
+																			{game.minPlayers ?? '?'}-{game.maxPlayers ?? '?'} players
+																		{/if}
+																		{#if game.playTimeMin || game.playTimeMax}
+																			<span class="mx-1">|</span>
+																			{game.playTimeMin ?? '?'}-{game.playTimeMax ?? '?'} min
+																		{/if}
+																	</p>
+																</div>
+																<div class="flex shrink-0 items-center gap-2">
+																	<button
+																		type="button"
+																		onclick={() => startEditingGame(imageIndex, gameIndex)}
+																		class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+																		aria-label="Edit {game.title}"
+																		title="Edit game details"
+																	>
+																		<svg
+																			xmlns="http://www.w3.org/2000/svg"
+																			width="14"
+																			height="14"
+																			viewBox="0 0 24 24"
+																			fill="none"
+																			stroke="currentColor"
+																			stroke-width="2"
+																			stroke-linecap="round"
+																			stroke-linejoin="round"
+																		>
+																			<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+																			<path d="m15 5 4 4" />
+																		</svg>
+																	</button>
+																	<span
+																		class="rounded-full px-2 py-0.5 text-xs font-medium {getConfidenceBadgeClass(
+																			game.confidence
+																		)}"
+																	>
+																		{game.confidence}
+																	</span>
+																</div>
+															</div>
+														</div>
+													</div>
+												{/if}
 											{/each}
 										</div>
 									{/if}
@@ -1251,7 +1502,11 @@
 							<Button type="button" variant="outline" onclick={cancelManualEntry} class="flex-1">
 								Cancel
 							</Button>
-							<Button type="submit" class="flex-1" disabled={isAddingToLibrary || !editTitle.trim()}>
+							<Button
+								type="submit"
+								class="flex-1"
+								disabled={isAddingToLibrary || !editTitle.trim()}
+							>
 								{#if isAddingToLibrary}
 									<svg
 										class="mr-2 h-4 w-4 animate-spin"
