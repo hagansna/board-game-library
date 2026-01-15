@@ -1,30 +1,45 @@
 import type { Handle } from '@sveltejs/kit';
-import {
-	getSessionCookie,
-	validateSession,
-	refreshSessionIfNeeded,
-	setSessionCookie
-} from '$lib/server/auth';
+import { createSupabaseServerClient } from '$lib/server/supabase';
 
 export const handle: Handle = async ({ event, resolve }) => {
-	const sessionId = getSessionCookie(event.cookies);
+	// Create Supabase client with cookie handlers
+	event.locals.supabase = createSupabaseServerClient(event.cookies);
 
-	if (sessionId) {
-		const session = await validateSession(sessionId);
+	// Safe session getter that validates JWT
+	event.locals.safeGetSession = async () => {
+		const {
+			data: { session }
+		} = await event.locals.supabase.auth.getSession();
 
-		if (session) {
-			event.locals.user = {
-				id: session.user.id,
-				email: session.user.email
-			};
-
-			// Refresh session if needed
-			const wasRefreshed = await refreshSessionIfNeeded(sessionId);
-			if (wasRefreshed) {
-				setSessionCookie(event.cookies, sessionId);
-			}
+		if (!session) {
+			return { session: null, user: null };
 		}
+
+		// Validate the session by getting the user
+		const {
+			data: { user },
+			error
+		} = await event.locals.supabase.auth.getUser();
+
+		if (error || !user) {
+			return { session: null, user: null };
+		}
+
+		return { session, user };
+	};
+
+	// Get session and populate user for backwards compatibility
+	const { user } = await event.locals.safeGetSession();
+	if (user) {
+		event.locals.user = {
+			id: user.id,
+			email: user.email || ''
+		};
 	}
 
-	return resolve(event);
+	return resolve(event, {
+		filterSerializedResponseHeaders(name) {
+			return name === 'content-range' || name === 'x-supabase-api-version';
+		}
+	});
 };

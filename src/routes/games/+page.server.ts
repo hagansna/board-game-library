@@ -2,7 +2,7 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { getUserGames, deleteGame } from '$lib/server/games';
 
-export const load: PageServerLoad = async ({ parent }) => {
+export const load: PageServerLoad = async ({ parent, locals }) => {
 	const { user } = await parent();
 
 	// Redirect to login if not authenticated
@@ -10,8 +10,8 @@ export const load: PageServerLoad = async ({ parent }) => {
 		throw redirect(302, '/auth/login');
 	}
 
-	// Fetch user's games
-	const games = await getUserGames(user.id);
+	// Fetch user's games (RLS ensures only user's games are returned)
+	const games = await getUserGames(locals.supabase);
 
 	return {
 		games
@@ -32,7 +32,8 @@ export const actions: Actions = {
 			return fail(400, { error: 'Game ID is required' });
 		}
 
-		const deleted = await deleteGame(gameId, locals.user.id);
+		// RLS ensures user can only delete their own games
+		const deleted = await deleteGame(locals.supabase, gameId);
 
 		if (!deleted) {
 			return fail(404, { error: 'Game not found or you do not have permission to delete it' });

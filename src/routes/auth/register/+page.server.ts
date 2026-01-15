@@ -1,16 +1,9 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
-import {
-	registerUser,
-	findUserByEmail,
-	isValidEmail,
-	isValidPassword,
-	createSession,
-	setSessionCookie
-} from '$lib/server/auth';
+import { isValidEmail, isValidPassword } from '$lib/server/auth';
 
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	default: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const email = formData.get('email')?.toString() ?? '';
 		const password = formData.get('password')?.toString() ?? '';
@@ -36,23 +29,20 @@ export const actions: Actions = {
 			return fail(400, { email, errors });
 		}
 
-		// Check for existing user
-		const existingUser = await findUserByEmail(email);
-		if (existingUser) {
-			return fail(400, {
-				email,
-				error: 'An account with this email already exists'
-			});
-		}
+		// Sign up with Supabase
+		const { error } = await locals.supabase.auth.signUp({
+			email,
+			password
+		});
 
-		// Create user
-		try {
-			const user = await registerUser(email, password);
-
-			// Create session and set cookie
-			const sessionId = await createSession(user.id);
-			setSessionCookie(cookies, sessionId);
-		} catch {
+		if (error) {
+			// Handle specific error cases
+			if (error.message.includes('already registered')) {
+				return fail(400, {
+					email,
+					error: 'An account with this email already exists'
+				});
+			}
 			return fail(500, {
 				email,
 				error: 'An error occurred during registration. Please try again.'

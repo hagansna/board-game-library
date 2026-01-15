@@ -8,7 +8,7 @@ import {
 	isLocalBoxArt
 } from '$lib/server/boxart';
 
-export const load: PageServerLoad = async ({ parent, params }) => {
+export const load: PageServerLoad = async ({ parent, params, locals }) => {
 	const { user } = await parent();
 
 	// Redirect to login if not authenticated
@@ -16,8 +16,8 @@ export const load: PageServerLoad = async ({ parent, params }) => {
 		throw redirect(302, '/auth/login');
 	}
 
-	// Fetch the game to edit
-	const game = await getGameById(params.id, user.id);
+	// Fetch the game to edit (RLS ensures only user's games are accessible)
+	const game = await getGameById(locals.supabase, params.id);
 
 	if (!game) {
 		throw error(404, 'Game not found');
@@ -36,7 +36,7 @@ export const actions: Actions = {
 		}
 
 		// Fetch existing game to check old box art
-		const existingGame = await getGameById(params.id, user.id);
+		const existingGame = await getGameById(locals.supabase, params.id);
 		if (!existingGame) {
 			throw error(404, 'Game not found');
 		}
@@ -177,9 +177,9 @@ export const actions: Actions = {
 			});
 		}
 
-		// Update game
+		// Update game (RLS ensures user can only update their own games)
 		try {
-			const updatedGame = await updateGame(params.id, user.id, {
+			const updatedGame = await updateGame(locals.supabase, params.id, {
 				title,
 				year,
 				minPlayers,

@@ -148,7 +148,7 @@ export const actions: Actions = {
 
 		// Create game
 		try {
-			await createGame(user.id, {
+			await createGame(locals.supabase, user.id, {
 				title,
 				year,
 				minPlayers,

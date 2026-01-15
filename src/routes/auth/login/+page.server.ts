@@ -1,16 +1,9 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
-import {
-	findUserByEmail,
-	verifyPassword,
-	isValidEmail,
-	isValidPassword,
-	createSession,
-	setSessionCookie
-} from '$lib/server/auth';
+import { isValidEmail, isValidPassword } from '$lib/server/auth';
 
 export const actions: Actions = {
-	default: async ({ request, cookies }) => {
+	default: async ({ request, locals }) => {
 		const formData = await request.formData();
 		const email = formData.get('email')?.toString() ?? '';
 		const password = formData.get('password')?.toString() ?? '';
@@ -36,32 +29,16 @@ export const actions: Actions = {
 			return fail(400, { email, errors });
 		}
 
-		// Find user by email
-		const user = await findUserByEmail(email);
-		if (!user) {
+		// Sign in with Supabase
+		const { error } = await locals.supabase.auth.signInWithPassword({
+			email,
+			password
+		});
+
+		if (error) {
 			return fail(400, {
 				email,
 				error: 'Invalid email or password'
-			});
-		}
-
-		// Verify password
-		const isPasswordValid = await verifyPassword(password, user.passwordHash);
-		if (!isPasswordValid) {
-			return fail(400, {
-				email,
-				error: 'Invalid email or password'
-			});
-		}
-
-		// Create session and set cookie
-		try {
-			const sessionId = await createSession(user.id);
-			setSessionCookie(cookies, sessionId);
-		} catch {
-			return fail(500, {
-				email,
-				error: 'An error occurred during login. Please try again.'
 			});
 		}
 

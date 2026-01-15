@@ -231,7 +231,7 @@ export const actions: Actions = {
 					categories = JSON.stringify(gameData.categories);
 				}
 
-				await createGame(locals.user.id, {
+				await createGame(locals.supabase, locals.user.id, {
 					title: gameData.title.trim(),
 					year: gameData.year,
 					minPlayers: gameData.minPlayers,
@@ -377,7 +377,7 @@ export const actions: Actions = {
 
 		try {
 			// Create the game in the database
-			await createGame(locals.user.id, {
+			await createGame(locals.supabase, locals.user.id, {
 				title: title!,
 				year,
 				minPlayers,

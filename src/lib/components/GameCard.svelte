@@ -15,7 +15,7 @@
 		playTimeMax?: number | null;
 		boxArtUrl?: string | null;
 		description?: string | null;
-		categories?: string | null;
+		categories?: string[] | null;
 		bggRating?: number | null;
 		bggRank?: number | null;
 	}
@@ -35,8 +35,8 @@
 		bggRank
 	}: Props = $props();
 
-	// Parse categories JSON string to array
-	const categoryList = $derived(categories ? (JSON.parse(categories) as string[]) : []);
+	// Categories are already an array from the database
+	const categoryList = $derived(categories ?? []);
 
 	let deleteDialogOpen = $state(false);
 	let isDeleting = $state(false);
