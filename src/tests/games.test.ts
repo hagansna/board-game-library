@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { prisma } from '$lib/server/db';
 import { registerUser } from '$lib/server/auth';
-import { getUserGames, getGameById, createGame, updateGame } from '$lib/server/games';
+import { getUserGames, getGameById, createGame, updateGame, deleteGame } from '$lib/server/games';
 
 // Helper to parse form validation errors (mirrors server-side validation logic)
 function parseValidationError(data: {
@@ -681,6 +681,177 @@ describe('Library Management - Edit Game (Story 7)', () => {
 				playTimeMax: 60
 			});
 			expect(errors).toBeNull();
+		});
+	});
+});
+
+describe('Library Management - Delete Game (Story 8)', () => {
+	const testUser1Email = 'deletegameuser1@example.com';
+	const testUser2Email = 'deletegameuser2@example.com';
+	const testPassword = 'securepassword123';
+	let testUser1Id: string;
+	let testUser2Id: string;
+
+	beforeEach(async () => {
+		// Clean up all test data and recreate users before each test
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+
+		// Create two test users for each test
+		const user1 = await registerUser(testUser1Email, testPassword);
+		const user2 = await registerUser(testUser2Email, testPassword);
+		testUser1Id = user1.id;
+		testUser2Id = user2.id;
+	});
+
+	afterAll(async () => {
+		// Clean up after all tests
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+	});
+
+	describe('deleteGame', () => {
+		it('should delete a game owned by the user', async () => {
+			const game = await createGame(testUser1Id, { title: 'Game to Delete' });
+
+			const result = await deleteGame(game.id, testUser1Id);
+			expect(result).toBe(true);
+
+			// Verify game is gone
+			const fetchedGame = await getGameById(game.id, testUser1Id);
+			expect(fetchedGame).toBeNull();
+		});
+
+		it('should return false when game does not exist', async () => {
+			const result = await deleteGame('non-existent-id', testUser1Id);
+			expect(result).toBe(false);
+		});
+
+		it('should return false when user does not own the game', async () => {
+			const game = await createGame(testUser1Id, { title: 'User 1 Game' });
+
+			// User 2 tries to delete User 1's game
+			const result = await deleteGame(game.id, testUser2Id);
+			expect(result).toBe(false);
+
+			// Verify original game still exists
+			const originalGame = await getGameById(game.id, testUser1Id);
+			expect(originalGame).not.toBeNull();
+			expect(originalGame?.title).toBe('User 1 Game');
+		});
+
+		it('should remove game from library view after deletion', async () => {
+			const game1 = await createGame(testUser1Id, { title: 'Game 1' });
+			const game2 = await createGame(testUser1Id, { title: 'Game 2' });
+			const game3 = await createGame(testUser1Id, { title: 'Game 3' });
+
+			// Verify all 3 games exist
+			let games = await getUserGames(testUser1Id);
+			expect(games).toHaveLength(3);
+
+			// Delete game 2
+			await deleteGame(game2.id, testUser1Id);
+
+			// Verify only 2 games remain
+			games = await getUserGames(testUser1Id);
+			expect(games).toHaveLength(2);
+			expect(games.map((g) => g.title)).toContain('Game 1');
+			expect(games.map((g) => g.title)).toContain('Game 3');
+			expect(games.map((g) => g.title)).not.toContain('Game 2');
+		});
+
+		it('should not affect other games when deleting one', async () => {
+			const game1 = await createGame(testUser1Id, {
+				title: 'Game 1',
+				year: 2020,
+				minPlayers: 2,
+				maxPlayers: 4
+			});
+			const game2 = await createGame(testUser1Id, {
+				title: 'Game 2',
+				year: 2021,
+				minPlayers: 1,
+				maxPlayers: 6
+			});
+
+			// Delete game1
+			await deleteGame(game1.id, testUser1Id);
+
+			// Verify game2 is unchanged
+			const fetchedGame2 = await getGameById(game2.id, testUser1Id);
+			expect(fetchedGame2).not.toBeNull();
+			expect(fetchedGame2?.title).toBe('Game 2');
+			expect(fetchedGame2?.year).toBe(2021);
+			expect(fetchedGame2?.minPlayers).toBe(1);
+			expect(fetchedGame2?.maxPlayers).toBe(6);
+		});
+
+		it('should persist deletion after refresh (simulated by re-fetching)', async () => {
+			const game = await createGame(testUser1Id, { title: 'Temporary Game' });
+
+			// Verify game exists
+			let fetchedGame = await getGameById(game.id, testUser1Id);
+			expect(fetchedGame).not.toBeNull();
+
+			// Delete the game
+			await deleteGame(game.id, testUser1Id);
+
+			// Fetch multiple times to simulate refresh
+			fetchedGame = await getGameById(game.id, testUser1Id);
+			expect(fetchedGame).toBeNull();
+
+			const games1 = await getUserGames(testUser1Id);
+			const games2 = await getUserGames(testUser1Id);
+			expect(games1).toEqual(games2);
+			expect(games1.map((g) => g.title)).not.toContain('Temporary Game');
+		});
+
+		it('should handle deletion of the only game in library', async () => {
+			const game = await createGame(testUser1Id, { title: 'Only Game' });
+
+			// Verify library has one game
+			let games = await getUserGames(testUser1Id);
+			expect(games).toHaveLength(1);
+
+			// Delete the only game
+			const result = await deleteGame(game.id, testUser1Id);
+			expect(result).toBe(true);
+
+			// Verify library is now empty
+			games = await getUserGames(testUser1Id);
+			expect(games).toHaveLength(0);
+		});
+
+		it('should isolate deletion between users', async () => {
+			// Create games for both users
+			const user1Game = await createGame(testUser1Id, { title: 'User 1 Game' });
+			const user2Game = await createGame(testUser2Id, { title: 'User 2 Game' });
+
+			// User 1 deletes their game
+			await deleteGame(user1Game.id, testUser1Id);
+
+			// User 2's game should still exist
+			const user2Games = await getUserGames(testUser2Id);
+			expect(user2Games).toHaveLength(1);
+			expect(user2Games[0].title).toBe('User 2 Game');
+
+			// User 1's library should be empty
+			const user1Games = await getUserGames(testUser1Id);
+			expect(user1Games).toHaveLength(0);
+		});
+
+		it('should not allow deleting same game twice', async () => {
+			const game = await createGame(testUser1Id, { title: 'Delete Me' });
+
+			// First deletion should succeed
+			const firstResult = await deleteGame(game.id, testUser1Id);
+			expect(firstResult).toBe(true);
+
+			// Second deletion should fail (game no longer exists)
+			const secondResult = await deleteGame(game.id, testUser1Id);
+			expect(secondResult).toBe(false);
 		});
 	});
 });

@@ -128,3 +128,27 @@ export async function updateGame(
 	});
 	return game;
 }
+
+/**
+ * Delete a game, ensuring it belongs to the specified user
+ * Returns true if game was deleted, false if game doesn't exist or doesn't belong to user
+ */
+export async function deleteGame(gameId: string, userId: string): Promise<boolean> {
+	// First check if game exists and belongs to user
+	const existingGame = await prisma.game.findFirst({
+		where: {
+			id: gameId,
+			userId
+		}
+	});
+
+	if (!existingGame) {
+		return false;
+	}
+
+	await prisma.game.delete({
+		where: { id: gameId }
+	});
+
+	return true;
+}
