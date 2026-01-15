@@ -544,6 +544,9 @@
 						bggRating={game.bggRating}
 						bggRank={game.bggRank}
 						suggestedAge={game.suggestedAge}
+						playCount={game.playCount}
+						review={game.review}
+						personalRating={game.personalRating}
 					/>
 				{/each}
 			</div>
