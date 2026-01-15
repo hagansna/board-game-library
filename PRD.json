@@ -355,7 +355,7 @@
 				"Test with invalid URL - verify error message",
 				"Test with oversized file - verify size limit error"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 16,
