@@ -3,6 +3,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import type { ExtractedGameData } from '$lib/server/gemini';
 
 	let { form } = $props();
 
@@ -11,6 +12,15 @@
 	let selectedFile = $state<File | null>(null);
 	let previewUrl = $state<string | null>(null);
 	let isUploading = $state(false);
+	let isAnalyzing = $state(false);
+
+	// State for uploaded image data (from server)
+	let uploadedImageData = $state<string | null>(null);
+	let uploadedMimeType = $state<string | null>(null);
+
+	// State for AI analysis results
+	let analysisResult = $state<ExtractedGameData | null>(null);
+	let analysisError = $state<string | null>(null);
 
 	// File input reference
 	let fileInput: HTMLInputElement;
@@ -23,6 +33,12 @@
 	// Handle file selection
 	function handleFileSelect(file: File | null) {
 		if (!file) return;
+
+		// Reset analysis state when new file is selected
+		analysisResult = null;
+		analysisError = null;
+		uploadedImageData = null;
+		uploadedMimeType = null;
 
 		// Client-side validation for immediate feedback
 		const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
@@ -105,6 +121,11 @@
 		if (fileInput) {
 			fileInput.value = '';
 		}
+		// Reset all analysis state
+		analysisResult = null;
+		analysisError = null;
+		uploadedImageData = null;
+		uploadedMimeType = null;
 	}
 
 	// Format file size for display
@@ -112,6 +133,20 @@
 		if (bytes < 1024) return `${bytes} B`;
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	// Get confidence badge color
+	function getConfidenceBadgeClass(confidence: string): string {
+		switch (confidence) {
+			case 'high':
+				return 'bg-green-500/15 text-green-700 dark:text-green-400';
+			case 'medium':
+				return 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-400';
+			case 'low':
+				return 'bg-red-500/15 text-red-700 dark:text-red-400';
+			default:
+				return 'bg-muted text-muted-foreground';
+		}
 	}
 
 	// Cleanup on component destroy
@@ -123,10 +158,29 @@
 		};
 	});
 
-	// Reset uploading state when form response arrives
+	// Handle form response updates
 	$effect(() => {
 		if (form) {
 			isUploading = false;
+			isAnalyzing = false;
+
+			// Store uploaded image data for analysis
+			if (form.success && form.imageData && form.mimeType) {
+				uploadedImageData = form.imageData;
+				uploadedMimeType = form.mimeType;
+			}
+
+			// Store analysis results
+			if (form.analyzed && form.gameData) {
+				analysisResult = form.gameData;
+				analysisError = null;
+			}
+
+			// Store analysis error
+			if (form.analyzeError) {
+				analysisError = form.analyzeError;
+				analysisResult = null;
+			}
 		}
 	});
 </script>
@@ -181,9 +235,9 @@
 						</div>
 					{/if}
 
-					{#if form?.success}
+					{#if form?.success && !analysisResult && !analysisError}
 						<div class="rounded-md bg-green-500/15 p-3 text-sm text-green-700 dark:text-green-400">
-							Image uploaded successfully! Ready for AI analysis.
+							Image uploaded successfully! Click "Analyze with AI" to extract game information.
 						</div>
 					{/if}
 
@@ -228,6 +282,7 @@
 										/>
 										<button
 											type="button"
+											aria-label="Remove selected image"
 											onclick={(e) => {
 												e.stopPropagation();
 												clearFile();
@@ -291,7 +346,11 @@
 						<Button type="button" variant="outline" href={resolve('/games')} class="flex-1">
 							Cancel
 						</Button>
-						<Button type="submit" class="flex-1" disabled={!selectedFile || isUploading}>
+						<Button
+							type="submit"
+							class="flex-1"
+							disabled={!selectedFile || isUploading || uploadedImageData !== null}
+						>
 							{#if isUploading}
 								<svg
 									class="mr-2 h-4 w-4 animate-spin"
@@ -338,6 +397,197 @@
 				</form>
 			</Card.Content>
 		</Card.Root>
+
+		<!-- AI Analysis Section - Shows after upload -->
+		{#if uploadedImageData && !analysisResult}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>AI Analysis</Card.Title>
+					<Card.Description>
+						Click the button below to analyze the image and extract game information using AI.
+					</Card.Description>
+				</Card.Header>
+				<Card.Content>
+					{#if analysisError}
+						<div class="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+							{analysisError}
+						</div>
+					{/if}
+
+					<form
+						method="POST"
+						action="?/analyze"
+						use:enhance={() => {
+							isAnalyzing = true;
+							return async ({ update }) => {
+								await update();
+								isAnalyzing = false;
+							};
+						}}
+					>
+						<input type="hidden" name="imageData" value={uploadedImageData} />
+						<input type="hidden" name="mimeType" value={uploadedMimeType} />
+
+						<Button type="submit" class="w-full" disabled={isAnalyzing}>
+							{#if isAnalyzing}
+								<svg
+									class="mr-2 h-4 w-4 animate-spin"
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<circle
+										class="opacity-25"
+										cx="12"
+										cy="12"
+										r="10"
+										stroke="currentColor"
+										stroke-width="4"
+									></circle>
+									<path
+										class="opacity-75"
+										fill="currentColor"
+										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+									></path>
+								</svg>
+								Analyzing with AI...
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="mr-2"
+								>
+									<path
+										d="M12 2a4 4 0 0 0-4 4c0 1.1.45 2.1 1.17 2.83L2 16v6h6l7.17-7.17A4 4 0 1 0 12 2z"
+									/>
+									<circle cx="12" cy="6" r="1" />
+								</svg>
+								Analyze with AI
+							{/if}
+						</Button>
+					</form>
+
+					{#if isAnalyzing}
+						<div class="mt-4 text-center">
+							<p class="text-sm text-muted-foreground">
+								This may take a few seconds while the AI examines the image...
+							</p>
+						</div>
+					{/if}
+				</Card.Content>
+			</Card.Root>
+		{/if}
+
+		<!-- Analysis Results -->
+		{#if analysisResult}
+			<Card.Root>
+				<Card.Header>
+					<div class="flex items-center justify-between">
+						<Card.Title>Analysis Results</Card.Title>
+						<span
+							class="rounded-full px-3 py-1 text-xs font-medium {getConfidenceBadgeClass(
+								analysisResult.confidence
+							)}"
+						>
+							{analysisResult.confidence === 'high'
+								? 'High'
+								: analysisResult.confidence === 'medium'
+									? 'Medium'
+									: 'Low'} Confidence
+						</span>
+					</div>
+					<Card.Description>
+						{#if analysisResult.confidence === 'high'}
+							The game was clearly identified from the image.
+						{:else if analysisResult.confidence === 'medium'}
+							The game was partially identified. Please verify the details.
+						{:else}
+							The AI could not confidently identify the game. Consider entering details manually.
+						{/if}
+					</Card.Description>
+				</Card.Header>
+				<Card.Content>
+					<div class="space-y-4">
+						{#if analysisResult.title}
+							<div class="flex justify-between border-b border-border pb-2">
+								<span class="font-medium text-muted-foreground">Title</span>
+								<span class="text-foreground">{analysisResult.title}</span>
+							</div>
+						{/if}
+
+						{#if analysisResult.publisher}
+							<div class="flex justify-between border-b border-border pb-2">
+								<span class="font-medium text-muted-foreground">Publisher</span>
+								<span class="text-foreground">{analysisResult.publisher}</span>
+							</div>
+						{/if}
+
+						{#if analysisResult.year}
+							<div class="flex justify-between border-b border-border pb-2">
+								<span class="font-medium text-muted-foreground">Year</span>
+								<span class="text-foreground">{analysisResult.year}</span>
+							</div>
+						{/if}
+
+						{#if analysisResult.minPlayers || analysisResult.maxPlayers}
+							<div class="flex justify-between border-b border-border pb-2">
+								<span class="font-medium text-muted-foreground">Players</span>
+								<span class="text-foreground">
+									{#if analysisResult.minPlayers && analysisResult.maxPlayers}
+										{analysisResult.minPlayers === analysisResult.maxPlayers
+											? analysisResult.minPlayers
+											: `${analysisResult.minPlayers}-${analysisResult.maxPlayers}`}
+									{:else if analysisResult.minPlayers}
+										{analysisResult.minPlayers}+
+									{:else if analysisResult.maxPlayers}
+										Up to {analysisResult.maxPlayers}
+									{/if}
+								</span>
+							</div>
+						{/if}
+
+						{#if analysisResult.playTimeMin || analysisResult.playTimeMax}
+							<div class="flex justify-between border-b border-border pb-2">
+								<span class="font-medium text-muted-foreground">Play Time</span>
+								<span class="text-foreground">
+									{#if analysisResult.playTimeMin && analysisResult.playTimeMax}
+										{analysisResult.playTimeMin === analysisResult.playTimeMax
+											? `${analysisResult.playTimeMin} min`
+											: `${analysisResult.playTimeMin}-${analysisResult.playTimeMax} min`}
+									{:else if analysisResult.playTimeMin}
+										{analysisResult.playTimeMin}+ min
+									{:else if analysisResult.playTimeMax}
+										Up to {analysisResult.playTimeMax} min
+									{/if}
+								</span>
+							</div>
+						{/if}
+
+						{#if !analysisResult.title && !analysisResult.publisher && !analysisResult.year && !analysisResult.minPlayers && !analysisResult.maxPlayers && !analysisResult.playTimeMin && !analysisResult.playTimeMax}
+							<p class="text-center text-muted-foreground">
+								No game information could be extracted from this image. The image may not show a
+								board game box, or may be too unclear.
+							</p>
+						{/if}
+					</div>
+				</Card.Content>
+				<Card.Footer class="flex gap-4">
+					<Button variant="outline" onclick={clearFile} class="flex-1">
+						Upload Different Image
+					</Button>
+					{#if analysisResult.title}
+						<Button href={resolve('/games/add')} class="flex-1">Add to Library</Button>
+					{/if}
+				</Card.Footer>
+			</Card.Root>
+		{/if}
 
 		<!-- Help section -->
 		<Card.Root>

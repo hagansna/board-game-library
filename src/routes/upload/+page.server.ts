@@ -1,14 +1,9 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { analyzeGameImage, type ExtractedGameData } from '$lib/server/gemini';
 
 // Allowed MIME types for image uploads
-const ALLOWED_MIME_TYPES = [
-	'image/jpeg',
-	'image/jpg',
-	'image/png',
-	'image/heic',
-	'image/heif'
-];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
 
 // Maximum file size: 10MB
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -69,6 +64,50 @@ export const actions: Actions = {
 			fileName: file.name,
 			fileSize: file.size,
 			mimeType: file.type
+		};
+	},
+
+	analyze: async ({ request, locals }) => {
+		// Check authentication
+		if (!locals.user) {
+			throw redirect(302, '/auth/login');
+		}
+
+		const formData = await request.formData();
+		const imageData = formData.get('imageData') as string | null;
+		const mimeType = formData.get('mimeType') as string | null;
+
+		// Validate image data
+		if (!imageData || !mimeType) {
+			return fail(400, {
+				analyzeError: 'No image data provided for analysis'
+			});
+		}
+
+		// Extract base64 data from data URL
+		const base64Match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+		if (!base64Match) {
+			return fail(400, {
+				analyzeError: 'Invalid image data format'
+			});
+		}
+
+		const base64Data = base64Match[2];
+
+		// Call Gemini AI for analysis
+		const result = await analyzeGameImage(base64Data, mimeType);
+
+		if (!result.success) {
+			return fail(500, {
+				analyzeError: result.error || 'Failed to analyze the image'
+			});
+		}
+
+		// Return the extracted game data
+		return {
+			analyzed: true,
+			gameData: result.data as ExtractedGameData,
+			confidence: result.data?.confidence || 'low'
 		};
 	}
 };
