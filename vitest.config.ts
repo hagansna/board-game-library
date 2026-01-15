@@ -8,6 +8,8 @@ export default defineConfig({
 		include: ['src/**/*.{test,spec}.{js,ts}'],
 		environment: 'jsdom',
 		setupFiles: ['./src/tests/setup.ts'],
-		globals: true
+		globals: true,
+		// Run test files sequentially to avoid database conflicts between test files
+		fileParallelism: false
 	}
 });

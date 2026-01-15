@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { prisma } from '$lib/server/db';
 import { registerUser } from '$lib/server/auth';
-import { getUserGames, getGameById, createGame } from '$lib/server/games';
+import { getUserGames, getGameById, createGame, updateGame } from '$lib/server/games';
 
 // Helper to parse form validation errors (mirrors server-side validation logic)
 function parseValidationError(data: {
@@ -464,6 +464,223 @@ describe('Library Management - Add Game (Story 6)', () => {
 			expect(gamesFetch1).toHaveLength(1);
 			expect(gamesFetch2).toHaveLength(1);
 			expect(gamesFetch1[0]).toEqual(gamesFetch2[0]);
+		});
+	});
+});
+
+describe('Library Management - Edit Game (Story 7)', () => {
+	const testUser1Email = 'editgameuser1@example.com';
+	const testUser2Email = 'editgameuser2@example.com';
+	const testPassword = 'securepassword123';
+	let testUser1Id: string;
+	let testUser2Id: string;
+
+	beforeEach(async () => {
+		// Clean up all test data and recreate users before each test
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+
+		// Create two test users for each test
+		const user1 = await registerUser(testUser1Email, testPassword);
+		const user2 = await registerUser(testUser2Email, testPassword);
+		testUser1Id = user1.id;
+		testUser2Id = user2.id;
+	});
+
+	afterAll(async () => {
+		// Clean up after all tests
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+	});
+
+	describe('updateGame', () => {
+		it('should update game title', async () => {
+			const game = await createGame(testUser1Id, {
+				title: 'Original Title',
+				year: 1995
+			});
+
+			const updated = await updateGame(game.id, testUser1Id, {
+				title: 'Updated Title',
+				year: 1995
+			});
+
+			expect(updated).not.toBeNull();
+			expect(updated?.title).toBe('Updated Title');
+			expect(updated?.year).toBe(1995);
+		});
+
+		it('should update all fields', async () => {
+			const game = await createGame(testUser1Id, {
+				title: 'Catan',
+				year: 1995,
+				minPlayers: 3,
+				maxPlayers: 4,
+				playTimeMin: 60,
+				playTimeMax: 90
+			});
+
+			const updated = await updateGame(game.id, testUser1Id, {
+				title: 'Catan: Seafarers',
+				year: 1997,
+				minPlayers: 2,
+				maxPlayers: 6,
+				playTimeMin: 90,
+				playTimeMax: 120
+			});
+
+			expect(updated).not.toBeNull();
+			expect(updated?.title).toBe('Catan: Seafarers');
+			expect(updated?.year).toBe(1997);
+			expect(updated?.minPlayers).toBe(2);
+			expect(updated?.maxPlayers).toBe(6);
+			expect(updated?.playTimeMin).toBe(90);
+			expect(updated?.playTimeMax).toBe(120);
+		});
+
+		it('should allow clearing optional fields by setting to null', async () => {
+			const game = await createGame(testUser1Id, {
+				title: 'Game With Details',
+				year: 2020,
+				minPlayers: 2,
+				maxPlayers: 4,
+				playTimeMin: 30,
+				playTimeMax: 60
+			});
+
+			const updated = await updateGame(game.id, testUser1Id, {
+				title: 'Game Without Details',
+				year: null,
+				minPlayers: null,
+				maxPlayers: null,
+				playTimeMin: null,
+				playTimeMax: null
+			});
+
+			expect(updated).not.toBeNull();
+			expect(updated?.title).toBe('Game Without Details');
+			expect(updated?.year).toBeNull();
+			expect(updated?.minPlayers).toBeNull();
+			expect(updated?.maxPlayers).toBeNull();
+			expect(updated?.playTimeMin).toBeNull();
+			expect(updated?.playTimeMax).toBeNull();
+		});
+
+		it('should preserve id after update', async () => {
+			const game = await createGame(testUser1Id, { title: 'My Game' });
+
+			const updated = await updateGame(game.id, testUser1Id, {
+				title: 'My Updated Game'
+			});
+
+			expect(updated?.id).toBe(game.id);
+		});
+
+		it('should update updatedAt timestamp', async () => {
+			const game = await createGame(testUser1Id, { title: 'Test Game' });
+			const originalUpdatedAt = game.updatedAt;
+
+			// Small delay to ensure timestamp difference
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			const updated = await updateGame(game.id, testUser1Id, {
+				title: 'Updated Test Game'
+			});
+
+			expect(updated?.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
+		});
+
+		it('should return null when game does not exist', async () => {
+			const result = await updateGame('non-existent-id', testUser1Id, {
+				title: 'Does Not Matter'
+			});
+
+			expect(result).toBeNull();
+		});
+
+		it('should return null when user does not own the game', async () => {
+			const game = await createGame(testUser1Id, { title: 'User 1 Game' });
+
+			// User 2 tries to update User 1's game
+			const result = await updateGame(game.id, testUser2Id, {
+				title: 'Hacked Title'
+			});
+
+			expect(result).toBeNull();
+
+			// Verify original game is unchanged
+			const originalGame = await getGameById(game.id, testUser1Id);
+			expect(originalGame?.title).toBe('User 1 Game');
+		});
+
+		it('should persist changes to database', async () => {
+			const game = await createGame(testUser1Id, { title: 'Before Update' });
+
+			await updateGame(game.id, testUser1Id, { title: 'After Update' });
+
+			// Fetch the game again to verify persistence
+			const fetched = await getGameById(game.id, testUser1Id);
+			expect(fetched?.title).toBe('After Update');
+		});
+
+		it('should display updated game in library', async () => {
+			await createGame(testUser1Id, { title: 'Alpha Game' });
+			const game2 = await createGame(testUser1Id, { title: 'Beta Game' });
+			await createGame(testUser1Id, { title: 'Gamma Game' });
+
+			// Update Beta to Zeta
+			await updateGame(game2.id, testUser1Id, { title: 'Zeta Game' });
+
+			// Verify library reflects the change
+			const games = await getUserGames(testUser1Id);
+			const titles = games.map((g) => g.title);
+
+			expect(titles).toContain('Zeta Game');
+			expect(titles).not.toContain('Beta Game');
+		});
+
+		it('should not affect other games when updating one', async () => {
+			const game1 = await createGame(testUser1Id, {
+				title: 'Game 1',
+				year: 2020
+			});
+			const game2 = await createGame(testUser1Id, {
+				title: 'Game 2',
+				year: 2021
+			});
+
+			// Update only game1
+			await updateGame(game1.id, testUser1Id, {
+				title: 'Game 1 Updated',
+				year: 2022
+			});
+
+			// Verify game2 is unchanged
+			const fetchedGame2 = await getGameById(game2.id, testUser1Id);
+			expect(fetchedGame2?.title).toBe('Game 2');
+			expect(fetchedGame2?.year).toBe(2021);
+		});
+	});
+
+	describe('Edit Form Validation (reuses add game validation)', () => {
+		it('should reject empty title when editing', () => {
+			const errors = parseValidationError({ title: '' });
+			expect(errors).not.toBeNull();
+			expect(errors?.title).toBe('Title is required');
+		});
+
+		it('should accept valid update data', () => {
+			const errors = parseValidationError({
+				title: 'Updated Game',
+				year: 2023,
+				minPlayers: 2,
+				maxPlayers: 4,
+				playTimeMin: 30,
+				playTimeMax: 60
+			});
+			expect(errors).toBeNull();
 		});
 	});
 });

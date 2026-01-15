@@ -82,3 +82,49 @@ export async function createGame(
 	});
 	return game;
 }
+
+/**
+ * Update an existing game, ensuring it belongs to the specified user
+ * Returns the updated game or null if game doesn't exist or doesn't belong to user
+ */
+export async function updateGame(
+	gameId: string,
+	userId: string,
+	data: {
+		title: string;
+		year?: number | null;
+		minPlayers?: number | null;
+		maxPlayers?: number | null;
+		playTimeMin?: number | null;
+		playTimeMax?: number | null;
+	}
+): Promise<GameWithoutUser | null> {
+	// First check if game exists and belongs to user
+	const existingGame = await prisma.game.findFirst({
+		where: {
+			id: gameId,
+			userId
+		}
+	});
+
+	if (!existingGame) {
+		return null;
+	}
+
+	const game = await prisma.game.update({
+		where: { id: gameId },
+		data,
+		select: {
+			id: true,
+			title: true,
+			year: true,
+			minPlayers: true,
+			maxPlayers: true,
+			playTimeMin: true,
+			playTimeMax: true,
+			createdAt: true,
+			updatedAt: true
+		}
+	});
+	return game;
+}

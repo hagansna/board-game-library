@@ -1,7 +1,10 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
+	import { resolve } from '$app/paths';
 
 	interface Props {
+		id: string;
 		title: string;
 		year?: number | null;
 		minPlayers?: number | null;
@@ -10,7 +13,7 @@
 		playTimeMax?: number | null;
 	}
 
-	let { title, year, minPlayers, maxPlayers, playTimeMin, playTimeMax }: Props = $props();
+	let { id, title, year, minPlayers, maxPlayers, playTimeMin, playTimeMax }: Props = $props();
 
 	function formatPlayers(min: number | null | undefined, max: number | null | undefined): string {
 		if (min == null && max == null) return '';
@@ -89,4 +92,24 @@
 			{/if}
 		</div>
 	</Card.Content>
+	<Card.Footer class="pt-0">
+		<Button variant="outline" size="sm" href={resolve(`/games/${id}/edit`)}>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="14"
+				height="14"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				class="mr-1"
+			>
+				<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+				<path d="m15 5 4 4" />
+			</svg>
+			Edit
+		</Button>
+	</Card.Footer>
 </Card.Root>
