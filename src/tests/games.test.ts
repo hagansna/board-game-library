@@ -855,3 +855,166 @@ describe('Library Management - Delete Game (Story 8)', () => {
 		});
 	});
 });
+
+describe('Library Management - Box Art Display (Story 16)', () => {
+	const testUserEmail = 'boxartdisplayuser@example.com';
+	const testPassword = 'securepassword123';
+	let testUserId: string;
+
+	beforeEach(async () => {
+		// Clean up all test data and recreate user before each test
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+
+		// Create test user
+		const user = await registerUser(testUserEmail, testPassword);
+		testUserId = user.id;
+	});
+
+	afterAll(async () => {
+		// Clean up after all tests
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+	});
+
+	describe('Box Art in Game Data', () => {
+		it('should return boxArtUrl in getUserGames response', async () => {
+			const boxArtUrl = 'https://example.com/catan-box-art.jpg';
+			await createGame(testUserId, {
+				title: 'Catan',
+				boxArtUrl
+			});
+
+			const games = await getUserGames(testUserId);
+			expect(games).toHaveLength(1);
+			expect(games[0].boxArtUrl).toBe(boxArtUrl);
+		});
+
+		it('should return null boxArtUrl when game has no box art', async () => {
+			await createGame(testUserId, {
+				title: 'Game Without Art'
+			});
+
+			const games = await getUserGames(testUserId);
+			expect(games).toHaveLength(1);
+			expect(games[0].boxArtUrl).toBeNull();
+		});
+
+		it('should return boxArtUrl in getGameById response', async () => {
+			const boxArtUrl = 'https://example.com/ticket-to-ride.png';
+			const game = await createGame(testUserId, {
+				title: 'Ticket to Ride',
+				boxArtUrl
+			});
+
+			const fetched = await getGameById(game.id, testUserId);
+			expect(fetched).not.toBeNull();
+			expect(fetched?.boxArtUrl).toBe(boxArtUrl);
+		});
+
+		it('should handle local upload path as boxArtUrl', async () => {
+			const localPath = '/uploads/boxart/game-12345.jpg';
+			await createGame(testUserId, {
+				title: 'Local Art Game',
+				boxArtUrl: localPath
+			});
+
+			const games = await getUserGames(testUserId);
+			expect(games[0].boxArtUrl).toBe(localPath);
+		});
+
+		it('should return multiple games with varying box art states', async () => {
+			await createGame(testUserId, {
+				title: 'Alpha',
+				boxArtUrl: 'https://example.com/alpha.jpg'
+			});
+			await createGame(testUserId, {
+				title: 'Beta',
+				boxArtUrl: null
+			});
+			await createGame(testUserId, {
+				title: 'Gamma',
+				boxArtUrl: '/uploads/boxart/gamma.png'
+			});
+
+			const games = await getUserGames(testUserId);
+			expect(games).toHaveLength(3);
+
+			const alpha = games.find((g) => g.title === 'Alpha');
+			const beta = games.find((g) => g.title === 'Beta');
+			const gamma = games.find((g) => g.title === 'Gamma');
+
+			expect(alpha?.boxArtUrl).toBe('https://example.com/alpha.jpg');
+			expect(beta?.boxArtUrl).toBeNull();
+			expect(gamma?.boxArtUrl).toBe('/uploads/boxart/gamma.png');
+		});
+	});
+
+	describe('Box Art Update and Remove', () => {
+		it('should update game to add box art', async () => {
+			const game = await createGame(testUserId, {
+				title: 'No Art Game'
+			});
+			expect(game.boxArtUrl).toBeNull();
+
+			const updated = await updateGame(game.id, testUserId, {
+				title: 'No Art Game',
+				boxArtUrl: 'https://example.com/new-art.jpg'
+			});
+
+			expect(updated?.boxArtUrl).toBe('https://example.com/new-art.jpg');
+		});
+
+		it('should update game to replace box art', async () => {
+			const game = await createGame(testUserId, {
+				title: 'Art Game',
+				boxArtUrl: 'https://example.com/old.jpg'
+			});
+
+			const updated = await updateGame(game.id, testUserId, {
+				title: 'Art Game',
+				boxArtUrl: 'https://example.com/new.jpg'
+			});
+
+			expect(updated?.boxArtUrl).toBe('https://example.com/new.jpg');
+		});
+
+		it('should update game to remove box art', async () => {
+			const game = await createGame(testUserId, {
+				title: 'Art Game',
+				boxArtUrl: 'https://example.com/art.jpg'
+			});
+			expect(game.boxArtUrl).not.toBeNull();
+
+			const updated = await updateGame(game.id, testUserId, {
+				title: 'Art Game',
+				boxArtUrl: null
+			});
+
+			expect(updated?.boxArtUrl).toBeNull();
+		});
+
+		it('should persist box art changes across fetches', async () => {
+			const game = await createGame(testUserId, {
+				title: 'Persistent Game',
+				boxArtUrl: 'https://example.com/persistent.jpg'
+			});
+
+			// Update box art
+			await updateGame(game.id, testUserId, {
+				title: 'Persistent Game',
+				boxArtUrl: 'https://example.com/updated.jpg'
+			});
+
+			// Fetch again to verify persistence
+			const fetched = await getGameById(game.id, testUserId);
+			expect(fetched?.boxArtUrl).toBe('https://example.com/updated.jpg');
+
+			// Also check getUserGames
+			const games = await getUserGames(testUserId);
+			expect(games[0].boxArtUrl).toBe('https://example.com/updated.jpg');
+		});
+	});
+});

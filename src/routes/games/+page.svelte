@@ -79,6 +79,7 @@
 						maxPlayers={game.maxPlayers}
 						playTimeMin={game.playTimeMin}
 						playTimeMax={game.playTimeMax}
+						boxArtUrl={game.boxArtUrl}
 					/>
 				{/each}
 			</div>

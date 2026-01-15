@@ -13,12 +13,19 @@
 		maxPlayers?: number | null;
 		playTimeMin?: number | null;
 		playTimeMax?: number | null;
+		boxArtUrl?: string | null;
 	}
 
-	let { id, title, year, minPlayers, maxPlayers, playTimeMin, playTimeMax }: Props = $props();
+	let { id, title, year, minPlayers, maxPlayers, playTimeMin, playTimeMax, boxArtUrl }: Props =
+		$props();
 
 	let deleteDialogOpen = $state(false);
 	let isDeleting = $state(false);
+	let imageError = $state(false);
+
+	function handleImageError() {
+		imageError = true;
+	}
 
 	function formatPlayers(min: number | null | undefined, max: number | null | undefined): string {
 		if (min == null && max == null) return '';
@@ -44,7 +51,40 @@
 	const playTimeText = $derived(formatPlayTime(playTimeMin, playTimeMax));
 </script>
 
-<Card.Root class="transition-shadow hover:shadow-md">
+<Card.Root class="overflow-hidden transition-shadow hover:shadow-md">
+	<!-- Box Art Image -->
+	<div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+		{#if boxArtUrl && !imageError}
+			<img
+				src={boxArtUrl}
+				alt="Box art for {title}"
+				loading="lazy"
+				onerror={handleImageError}
+				class="h-full w-full object-cover"
+			/>
+		{:else}
+			<!-- Placeholder when no box art or image error -->
+			<div class="flex h-full w-full items-center justify-center">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="48"
+					height="48"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="1.5"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class="text-muted-foreground/50"
+					aria-hidden="true"
+				>
+					<rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+					<circle cx="9" cy="9" r="2" />
+					<path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+				</svg>
+			</div>
+		{/if}
+	</div>
 	<Card.Header>
 		<Card.Title class="text-lg">{title}</Card.Title>
 		{#if year}
