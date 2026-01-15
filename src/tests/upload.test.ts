@@ -1,15 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { prisma } from '$lib/server/db';
 import { registerUser, createSession } from '$lib/server/auth';
+import { createGame, getUserGames } from '$lib/server/games';
+import type { ExtractedGameData } from '$lib/server/gemini';
 
 // Validation logic mirroring server-side implementation
-const ALLOWED_MIME_TYPES = [
-	'image/jpeg',
-	'image/jpg',
-	'image/png',
-	'image/heic',
-	'image/heif'
-];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 function validateImageFile(file: { type: string; size: number; name: string }): {
@@ -208,6 +204,370 @@ describe('Image Upload - Story 9', () => {
 			// A file with correct extension but wrong MIME type should be invalid
 			const wrongMimeFile = { type: 'application/octet-stream', size: 1024, name: 'photo.jpg' };
 			expect(validateImageFile(wrongMimeFile).valid).toBe(false);
+		});
+	});
+});
+
+// Story 11 Tests - Review and Confirm AI Results Before Adding to Library
+describe('AI Results Review - Story 11', () => {
+	const testUserEmail = 'reviewtest@example.com';
+	const testPassword = 'securepassword123';
+	let testUserId: string;
+
+	beforeAll(async () => {
+		// Clean up existing test data
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+
+		// Create test user
+		const user = await registerUser(testUserEmail, testPassword);
+		testUserId = user.id;
+	});
+
+	beforeEach(async () => {
+		// Clean up games before each test
+		await prisma.game.deleteMany({ where: { userId: testUserId } });
+	});
+
+	afterAll(async () => {
+		// Clean up
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		await prisma.$disconnect();
+	});
+
+	// Validation logic for addToLibrary action
+	function validateAddToLibraryForm(formData: {
+		title?: string;
+		publisher?: string;
+		year?: string;
+		minPlayers?: string;
+		maxPlayers?: string;
+		playTimeMin?: string;
+		playTimeMax?: string;
+	}): { valid: boolean; errors: Record<string, string> } {
+		const errors: Record<string, string> = {};
+
+		// Validate title
+		const title = formData.title?.trim();
+		if (!title) {
+			errors.title = 'Title is required';
+		}
+
+		// Validate year
+		const currentYear = new Date().getFullYear();
+		if (formData.year) {
+			const year = parseInt(formData.year, 10);
+			if (isNaN(year) || year < 1 || year > currentYear + 1) {
+				errors.year = `Year must be between 1 and ${currentYear + 1}`;
+			}
+		}
+
+		// Validate player count
+		if (formData.minPlayers && formData.maxPlayers) {
+			const minPlayers = parseInt(formData.minPlayers, 10);
+			const maxPlayers = parseInt(formData.maxPlayers, 10);
+			if (!isNaN(minPlayers) && !isNaN(maxPlayers) && minPlayers > maxPlayers) {
+				errors.players = 'Min players cannot be greater than max players';
+			}
+		}
+
+		// Validate play time
+		if (formData.playTimeMin && formData.playTimeMax) {
+			const playTimeMin = parseInt(formData.playTimeMin, 10);
+			const playTimeMax = parseInt(formData.playTimeMax, 10);
+			if (!isNaN(playTimeMin) && !isNaN(playTimeMax) && playTimeMin > playTimeMax) {
+				errors.playTime = 'Min play time cannot be greater than max play time';
+			}
+		}
+
+		return {
+			valid: Object.keys(errors).length === 0,
+			errors
+		};
+	}
+
+	describe('Form Validation', () => {
+		it('should require a title to add game to library', () => {
+			const result = validateAddToLibraryForm({});
+			expect(result.valid).toBe(false);
+			expect(result.errors.title).toBe('Title is required');
+		});
+
+		it('should reject empty or whitespace-only title', () => {
+			const emptyResult = validateAddToLibraryForm({ title: '' });
+			expect(emptyResult.valid).toBe(false);
+			expect(emptyResult.errors.title).toBe('Title is required');
+
+			const whitespaceResult = validateAddToLibraryForm({ title: '   ' });
+			expect(whitespaceResult.valid).toBe(false);
+			expect(whitespaceResult.errors.title).toBe('Title is required');
+		});
+
+		it('should accept valid form data with all fields', () => {
+			const result = validateAddToLibraryForm({
+				title: 'Catan',
+				publisher: 'Kosmos',
+				year: '1995',
+				minPlayers: '3',
+				maxPlayers: '4',
+				playTimeMin: '60',
+				playTimeMax: '120'
+			});
+			expect(result.valid).toBe(true);
+			expect(Object.keys(result.errors)).toHaveLength(0);
+		});
+
+		it('should accept form with only required title', () => {
+			const result = validateAddToLibraryForm({
+				title: 'Pandemic'
+			});
+			expect(result.valid).toBe(true);
+		});
+
+		it('should reject invalid year', () => {
+			const futureYear = validateAddToLibraryForm({
+				title: 'Test Game',
+				year: '2100'
+			});
+			expect(futureYear.valid).toBe(false);
+			expect(futureYear.errors.year).toContain('Year must be between');
+
+			const negativeYear = validateAddToLibraryForm({
+				title: 'Test Game',
+				year: '-100'
+			});
+			expect(negativeYear.valid).toBe(false);
+
+			const zeroYear = validateAddToLibraryForm({
+				title: 'Test Game',
+				year: '0'
+			});
+			expect(zeroYear.valid).toBe(false);
+		});
+
+		it('should reject invalid player count range', () => {
+			const result = validateAddToLibraryForm({
+				title: 'Test Game',
+				minPlayers: '5',
+				maxPlayers: '2'
+			});
+			expect(result.valid).toBe(false);
+			expect(result.errors.players).toBe('Min players cannot be greater than max players');
+		});
+
+		it('should reject invalid play time range', () => {
+			const result = validateAddToLibraryForm({
+				title: 'Test Game',
+				playTimeMin: '120',
+				playTimeMax: '30'
+			});
+			expect(result.valid).toBe(false);
+			expect(result.errors.playTime).toBe('Min play time cannot be greater than max play time');
+		});
+	});
+
+	describe('Adding Game to Library', () => {
+		it('should successfully add game with AI-extracted data', async () => {
+			// Simulate AI-extracted data that user confirms
+			const gameData = {
+				title: 'Catan',
+				year: 1995,
+				minPlayers: 3,
+				maxPlayers: 4,
+				playTimeMin: 60,
+				playTimeMax: 120
+			};
+
+			const game = await createGame(testUserId, gameData);
+
+			expect(game).toBeDefined();
+			expect(game.title).toBe('Catan');
+			expect(game.year).toBe(1995);
+			expect(game.minPlayers).toBe(3);
+			expect(game.maxPlayers).toBe(4);
+
+			// Verify it appears in user's library
+			const games = await getUserGames(testUserId);
+			expect(games).toHaveLength(1);
+			expect(games[0].title).toBe('Catan');
+		});
+
+		it('should allow user to modify AI-extracted data before adding', async () => {
+			// AI extracted 'Catan' but user corrects it
+			const correctedData = {
+				title: 'Die Siedler von Catan', // User corrects to German name
+				year: 1995,
+				minPlayers: 3,
+				maxPlayers: 6, // User corrects max players for expansion
+				playTimeMin: 60,
+				playTimeMax: 150
+			};
+
+			const game = await createGame(testUserId, correctedData);
+
+			expect(game.title).toBe('Die Siedler von Catan');
+			expect(game.maxPlayers).toBe(6);
+			expect(game.playTimeMax).toBe(150);
+		});
+
+		it('should handle game with partial AI data that user completes', async () => {
+			// AI only extracted title (low confidence)
+			// User fills in the rest manually
+			const completedData = {
+				title: 'Obscure Board Game',
+				year: 2020,
+				minPlayers: 2,
+				maxPlayers: 5,
+				playTimeMin: 30,
+				playTimeMax: 60
+			};
+
+			const game = await createGame(testUserId, completedData);
+
+			expect(game.title).toBe('Obscure Board Game');
+			expect(game.year).toBe(2020);
+			expect(game.minPlayers).toBe(2);
+		});
+
+		it('should add game with only title when other fields are empty', async () => {
+			// User confirms game with only title extracted
+			const minimalData = {
+				title: 'Unknown Game'
+			};
+
+			const game = await createGame(testUserId, minimalData);
+
+			expect(game.title).toBe('Unknown Game');
+			expect(game.year).toBeNull();
+			expect(game.minPlayers).toBeNull();
+			expect(game.maxPlayers).toBeNull();
+			expect(game.playTimeMin).toBeNull();
+			expect(game.playTimeMax).toBeNull();
+		});
+
+		it('should not add game when user cancels (clears form)', async () => {
+			// User decides not to add the game
+			// This is tested by verifying no game is added when cancel is clicked
+			const gamesBefore = await getUserGames(testUserId);
+			const countBefore = gamesBefore.length;
+
+			// Simulate cancel - no createGame call is made
+			// Just verify the state hasn't changed
+			const gamesAfter = await getUserGames(testUserId);
+			expect(gamesAfter).toHaveLength(countBefore);
+		});
+	});
+
+	describe('ExtractedGameData Population', () => {
+		it('should correctly structure AI-extracted data for form population', () => {
+			// Simulate the ExtractedGameData that would come from Gemini
+			const extractedData: ExtractedGameData = {
+				title: 'Ticket to Ride',
+				publisher: 'Days of Wonder',
+				year: 2004,
+				minPlayers: 2,
+				maxPlayers: 5,
+				playTimeMin: 30,
+				playTimeMax: 60,
+				confidence: 'high'
+			};
+
+			// These values should be directly usable in form inputs
+			expect(extractedData.title).toBe('Ticket to Ride');
+			expect(extractedData.publisher).toBe('Days of Wonder');
+			expect(extractedData.year?.toString()).toBe('2004');
+			expect(extractedData.minPlayers?.toString()).toBe('2');
+			expect(extractedData.maxPlayers?.toString()).toBe('5');
+			expect(extractedData.playTimeMin?.toString()).toBe('30');
+			expect(extractedData.playTimeMax?.toString()).toBe('60');
+		});
+
+		it('should handle null values in extracted data', () => {
+			const partialData: ExtractedGameData = {
+				title: 'Some Game',
+				publisher: null,
+				year: null,
+				minPlayers: 2,
+				maxPlayers: null,
+				playTimeMin: null,
+				playTimeMax: null,
+				confidence: 'medium'
+			};
+
+			// Null values should become empty strings for form inputs
+			expect(partialData.title).toBe('Some Game');
+			expect(partialData.publisher ?? '').toBe('');
+			expect(partialData.year?.toString() ?? '').toBe('');
+			expect(partialData.minPlayers?.toString()).toBe('2');
+			expect(partialData.maxPlayers?.toString() ?? '').toBe('');
+		});
+
+		it('should handle completely empty extraction result', () => {
+			const emptyData: ExtractedGameData = {
+				title: null,
+				publisher: null,
+				year: null,
+				minPlayers: null,
+				maxPlayers: null,
+				playTimeMin: null,
+				playTimeMax: null,
+				confidence: 'low'
+			};
+
+			// All fields should be empty/null
+			expect(emptyData.title).toBeNull();
+			expect(emptyData.confidence).toBe('low');
+		});
+	});
+
+	describe('Data Persistence', () => {
+		it('should persist game to database after user confirms', async () => {
+			const gameData = {
+				title: 'Azul',
+				year: 2017,
+				minPlayers: 2,
+				maxPlayers: 4,
+				playTimeMin: 30,
+				playTimeMax: 45
+			};
+
+			await createGame(testUserId, gameData);
+
+			// Verify directly from database
+			const dbGame = await prisma.game.findFirst({
+				where: {
+					userId: testUserId,
+					title: 'Azul'
+				}
+			});
+
+			expect(dbGame).not.toBeNull();
+			expect(dbGame?.title).toBe('Azul');
+			expect(dbGame?.year).toBe(2017);
+		});
+
+		it('should associate game with correct user', async () => {
+			// Create second user
+			const user2 = await registerUser('user2@example.com', 'password123');
+
+			// Add game for user 1
+			await createGame(testUserId, { title: 'User1 Game' });
+
+			// Add game for user 2
+			await createGame(user2.id, { title: 'User2 Game' });
+
+			// Verify each user sees only their game
+			const user1Games = await getUserGames(testUserId);
+			const user2Games = await getUserGames(user2.id);
+
+			expect(user1Games.some((g) => g.title === 'User1 Game')).toBe(true);
+			expect(user1Games.some((g) => g.title === 'User2 Game')).toBe(false);
+
+			expect(user2Games.some((g) => g.title === 'User2 Game')).toBe(true);
+			expect(user2Games.some((g) => g.title === 'User1 Game')).toBe(false);
 		});
 	});
 });

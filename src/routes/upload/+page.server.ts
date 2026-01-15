@@ -1,6 +1,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { analyzeGameImage, type ExtractedGameData } from '$lib/server/gemini';
+import { createGame } from '$lib/server/games';
 
 // Allowed MIME types for image uploads
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
@@ -109,5 +110,105 @@ export const actions: Actions = {
 			gameData: result.data as ExtractedGameData,
 			confidence: result.data?.confidence || 'low'
 		};
+	},
+
+	addToLibrary: async ({ request, locals }) => {
+		// Check authentication
+		if (!locals.user) {
+			throw redirect(302, '/auth/login');
+		}
+
+		const formData = await request.formData();
+
+		// Get form values
+		const title = (formData.get('title') as string)?.trim();
+		const publisher = (formData.get('publisher') as string)?.trim() || null;
+		const yearStr = formData.get('year') as string;
+		const minPlayersStr = formData.get('minPlayers') as string;
+		const maxPlayersStr = formData.get('maxPlayers') as string;
+		const playTimeMinStr = formData.get('playTimeMin') as string;
+		const playTimeMaxStr = formData.get('playTimeMax') as string;
+
+		// Parse numeric values
+		const year = yearStr ? parseInt(yearStr, 10) : null;
+		const minPlayers = minPlayersStr ? parseInt(minPlayersStr, 10) : null;
+		const maxPlayers = maxPlayersStr ? parseInt(maxPlayersStr, 10) : null;
+		const playTimeMin = playTimeMinStr ? parseInt(playTimeMinStr, 10) : null;
+		const playTimeMax = playTimeMaxStr ? parseInt(playTimeMaxStr, 10) : null;
+
+		// Validation errors object
+		const errors: Record<string, string> = {};
+
+		// Validate title
+		if (!title) {
+			errors.title = 'Title is required';
+		}
+
+		// Validate year
+		const currentYear = new Date().getFullYear();
+		if (year !== null) {
+			if (isNaN(year) || year < 1 || year > currentYear + 1) {
+				errors.year = `Year must be between 1 and ${currentYear + 1}`;
+			}
+		}
+
+		// Validate player count
+		if (minPlayers !== null && maxPlayers !== null) {
+			if (minPlayers > maxPlayers) {
+				errors.players = 'Min players cannot be greater than max players';
+			}
+		}
+
+		// Validate play time
+		if (playTimeMin !== null && playTimeMax !== null) {
+			if (playTimeMin > playTimeMax) {
+				errors.playTime = 'Min play time cannot be greater than max play time';
+			}
+		}
+
+		// Return validation errors if any
+		if (Object.keys(errors).length > 0) {
+			return fail(400, {
+				addError: 'Please correct the errors below',
+				errors,
+				// Preserve form values
+				title,
+				publisher,
+				year: yearStr,
+				minPlayers: minPlayersStr,
+				maxPlayers: maxPlayersStr,
+				playTimeMin: playTimeMinStr,
+				playTimeMax: playTimeMaxStr
+			});
+		}
+
+		try {
+			// Create the game in the database
+			await createGame(locals.user.id, {
+				title: title!,
+				year,
+				minPlayers,
+				maxPlayers,
+				playTimeMin,
+				playTimeMax
+			});
+
+			// Return success - the client will redirect
+			return {
+				added: true
+			};
+		} catch (error) {
+			console.error('Error creating game:', error);
+			return fail(500, {
+				addError: 'Failed to add game to library. Please try again.',
+				title,
+				publisher,
+				year: yearStr,
+				minPlayers: minPlayersStr,
+				maxPlayers: maxPlayersStr,
+				playTimeMin: playTimeMinStr,
+				playTimeMax: playTimeMaxStr
+			});
+		}
 	}
 };

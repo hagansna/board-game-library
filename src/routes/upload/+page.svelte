@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import type { ExtractedGameData } from '$lib/server/gemini';
 
 	let { form } = $props();
@@ -13,6 +16,7 @@
 	let previewUrl = $state<string | null>(null);
 	let isUploading = $state(false);
 	let isAnalyzing = $state(false);
+	let isAddingToLibrary = $state(false);
 
 	// State for uploaded image data (from server)
 	let uploadedImageData = $state<string | null>(null);
@@ -21,6 +25,15 @@
 	// State for AI analysis results
 	let analysisResult = $state<ExtractedGameData | null>(null);
 	let analysisError = $state<string | null>(null);
+
+	// Editable form fields for review
+	let editTitle = $state('');
+	let editPublisher = $state('');
+	let editYear = $state('');
+	let editMinPlayers = $state('');
+	let editMaxPlayers = $state('');
+	let editPlayTimeMin = $state('');
+	let editPlayTimeMax = $state('');
 
 	// File input reference
 	let fileInput: HTMLInputElement;
@@ -158,11 +171,23 @@
 		};
 	});
 
+	// Populate editable fields from analysis result
+	function populateEditFields(data: ExtractedGameData) {
+		editTitle = data.title ?? '';
+		editPublisher = data.publisher ?? '';
+		editYear = data.year?.toString() ?? '';
+		editMinPlayers = data.minPlayers?.toString() ?? '';
+		editMaxPlayers = data.maxPlayers?.toString() ?? '';
+		editPlayTimeMin = data.playTimeMin?.toString() ?? '';
+		editPlayTimeMax = data.playTimeMax?.toString() ?? '';
+	}
+
 	// Handle form response updates
 	$effect(() => {
 		if (form) {
 			isUploading = false;
 			isAnalyzing = false;
+			isAddingToLibrary = false;
 
 			// Store uploaded image data for analysis
 			if (form.success && form.imageData && form.mimeType) {
@@ -170,16 +195,27 @@
 				uploadedMimeType = form.mimeType;
 			}
 
-			// Store analysis results
+			// Store analysis results and populate editable fields
 			if (form.analyzed && form.gameData) {
 				analysisResult = form.gameData;
 				analysisError = null;
+				populateEditFields(form.gameData);
 			}
 
 			// Store analysis error
 			if (form.analyzeError) {
 				analysisError = form.analyzeError;
 				analysisResult = null;
+			}
+
+			// Handle successful game addition - redirect to library
+			if (form.added) {
+				goto(resolve('/games'));
+			}
+
+			// Handle add to library error
+			if (form.addError) {
+				// Keep the form open with the error displayed
 			}
 		}
 	});
@@ -485,12 +521,12 @@
 			</Card.Root>
 		{/if}
 
-		<!-- Analysis Results -->
+		<!-- Analysis Results - Editable Review Form -->
 		{#if analysisResult}
 			<Card.Root>
 				<Card.Header>
 					<div class="flex items-center justify-between">
-						<Card.Title>Analysis Results</Card.Title>
+						<Card.Title>Review Game Details</Card.Title>
 						<span
 							class="rounded-full px-3 py-1 text-xs font-medium {getConfidenceBadgeClass(
 								analysisResult.confidence
@@ -505,87 +541,180 @@
 					</div>
 					<Card.Description>
 						{#if analysisResult.confidence === 'high'}
-							The game was clearly identified from the image.
+							The game was clearly identified. Review the details and click "Add to Library" to save.
 						{:else if analysisResult.confidence === 'medium'}
-							The game was partially identified. Please verify the details.
+							The game was partially identified. Please verify and correct the details below.
 						{:else}
-							The AI could not confidently identify the game. Consider entering details manually.
+							The AI could not confidently identify the game. Please fill in or correct the details below.
 						{/if}
 					</Card.Description>
 				</Card.Header>
 				<Card.Content>
-					<div class="space-y-4">
-						{#if analysisResult.title}
-							<div class="flex justify-between border-b border-border pb-2">
-								<span class="font-medium text-muted-foreground">Title</span>
-								<span class="text-foreground">{analysisResult.title}</span>
+					<form
+						method="POST"
+						action="?/addToLibrary"
+						use:enhance={() => {
+							isAddingToLibrary = true;
+							return async ({ update }) => {
+								await update();
+								isAddingToLibrary = false;
+							};
+						}}
+						class="space-y-6"
+					>
+						{#if form?.addError}
+							<div class="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+								{form.addError}
 							</div>
 						{/if}
 
-						{#if analysisResult.publisher}
-							<div class="flex justify-between border-b border-border pb-2">
-								<span class="font-medium text-muted-foreground">Publisher</span>
-								<span class="text-foreground">{analysisResult.publisher}</span>
-							</div>
-						{/if}
+						<div class="space-y-2">
+							<Label for="title">Title <span class="text-destructive">*</span></Label>
+							<Input
+								id="title"
+								name="title"
+								type="text"
+								placeholder="e.g., Catan"
+								bind:value={editTitle}
+								required
+							/>
+							{#if form?.errors?.title}
+								<p class="text-sm text-destructive">{form.errors.title}</p>
+							{/if}
+						</div>
 
-						{#if analysisResult.year}
-							<div class="flex justify-between border-b border-border pb-2">
-								<span class="font-medium text-muted-foreground">Year</span>
-								<span class="text-foreground">{analysisResult.year}</span>
-							</div>
-						{/if}
+						<div class="space-y-2">
+							<Label for="publisher">Publisher</Label>
+							<Input
+								id="publisher"
+								name="publisher"
+								type="text"
+								placeholder="e.g., Kosmos"
+								bind:value={editPublisher}
+							/>
+						</div>
 
-						{#if analysisResult.minPlayers || analysisResult.maxPlayers}
-							<div class="flex justify-between border-b border-border pb-2">
-								<span class="font-medium text-muted-foreground">Players</span>
-								<span class="text-foreground">
-									{#if analysisResult.minPlayers && analysisResult.maxPlayers}
-										{analysisResult.minPlayers === analysisResult.maxPlayers
-											? analysisResult.minPlayers
-											: `${analysisResult.minPlayers}-${analysisResult.maxPlayers}`}
-									{:else if analysisResult.minPlayers}
-										{analysisResult.minPlayers}+
-									{:else if analysisResult.maxPlayers}
-										Up to {analysisResult.maxPlayers}
-									{/if}
-								</span>
-							</div>
-						{/if}
+						<div class="space-y-2">
+							<Label for="year">Year Published</Label>
+							<Input
+								id="year"
+								name="year"
+								type="number"
+								placeholder="e.g., 1995"
+								bind:value={editYear}
+								min="1"
+								max={new Date().getFullYear() + 1}
+							/>
+							{#if form?.errors?.year}
+								<p class="text-sm text-destructive">{form.errors.year}</p>
+							{/if}
+						</div>
 
-						{#if analysisResult.playTimeMin || analysisResult.playTimeMax}
-							<div class="flex justify-between border-b border-border pb-2">
-								<span class="font-medium text-muted-foreground">Play Time</span>
-								<span class="text-foreground">
-									{#if analysisResult.playTimeMin && analysisResult.playTimeMax}
-										{analysisResult.playTimeMin === analysisResult.playTimeMax
-											? `${analysisResult.playTimeMin} min`
-											: `${analysisResult.playTimeMin}-${analysisResult.playTimeMax} min`}
-									{:else if analysisResult.playTimeMin}
-										{analysisResult.playTimeMin}+ min
-									{:else if analysisResult.playTimeMax}
-										Up to {analysisResult.playTimeMax} min
-									{/if}
-								</span>
+						<div class="space-y-2">
+							<Label>Player Count</Label>
+							<div class="flex items-center gap-2">
+								<Input
+									id="minPlayers"
+									name="minPlayers"
+									type="number"
+									placeholder="Min"
+									bind:value={editMinPlayers}
+									min="1"
+									class="flex-1"
+								/>
+								<span class="text-muted-foreground">to</span>
+								<Input
+									id="maxPlayers"
+									name="maxPlayers"
+									type="number"
+									placeholder="Max"
+									bind:value={editMaxPlayers}
+									min="1"
+									class="flex-1"
+								/>
 							</div>
-						{/if}
+							{#if form?.errors?.players}
+								<p class="text-sm text-destructive">{form.errors.players}</p>
+							{/if}
+						</div>
 
-						{#if !analysisResult.title && !analysisResult.publisher && !analysisResult.year && !analysisResult.minPlayers && !analysisResult.maxPlayers && !analysisResult.playTimeMin && !analysisResult.playTimeMax}
-							<p class="text-center text-muted-foreground">
-								No game information could be extracted from this image. The image may not show a
-								board game box, or may be too unclear.
-							</p>
-						{/if}
-					</div>
+						<div class="space-y-2">
+							<Label>Play Time (minutes)</Label>
+							<div class="flex items-center gap-2">
+								<Input
+									id="playTimeMin"
+									name="playTimeMin"
+									type="number"
+									placeholder="Min"
+									bind:value={editPlayTimeMin}
+									min="1"
+									class="flex-1"
+								/>
+								<span class="text-muted-foreground">to</span>
+								<Input
+									id="playTimeMax"
+									name="playTimeMax"
+									type="number"
+									placeholder="Max"
+									bind:value={editPlayTimeMax}
+									min="1"
+									class="flex-1"
+								/>
+							</div>
+							{#if form?.errors?.playTime}
+								<p class="text-sm text-destructive">{form.errors.playTime}</p>
+							{/if}
+						</div>
+
+						<div class="flex gap-4 pt-4">
+							<Button type="button" variant="outline" onclick={clearFile} class="flex-1">
+								Cancel
+							</Button>
+							<Button type="submit" class="flex-1" disabled={isAddingToLibrary || !editTitle.trim()}>
+								{#if isAddingToLibrary}
+									<svg
+										class="mr-2 h-4 w-4 animate-spin"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											class="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="4"
+										></circle>
+										<path
+											class="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										></path>
+									</svg>
+									Adding...
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="mr-2"
+									>
+										<path d="M12 5v14" />
+										<path d="M5 12h14" />
+									</svg>
+									Add to Library
+								{/if}
+							</Button>
+						</div>
+					</form>
 				</Card.Content>
-				<Card.Footer class="flex gap-4">
-					<Button variant="outline" onclick={clearFile} class="flex-1">
-						Upload Different Image
-					</Button>
-					{#if analysisResult.title}
-						<Button href={resolve('/games/add')} class="flex-1">Add to Library</Button>
-					{/if}
-				</Card.Footer>
 			</Card.Root>
 		{/if}
 
