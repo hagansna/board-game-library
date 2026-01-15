@@ -233,3 +233,82 @@ describe('User Login', () => {
 		expect(user?.email).toBe(testEmail);
 	});
 });
+
+describe('User Logout', () => {
+	const testEmail = 'logouttest@example.com';
+	const testPassword = 'securepassword123';
+	let testUserId: string;
+
+	beforeAll(async () => {
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		const user = await registerUser(testEmail, testPassword);
+		testUserId = user.id;
+	});
+
+	beforeEach(async () => {
+		await prisma.session.deleteMany({});
+	});
+
+	afterAll(async () => {
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		await prisma.$disconnect();
+	});
+
+	it('should delete session on logout', async () => {
+		// Create a session (simulating login)
+		const sessionId = await createSession(testUserId);
+
+		// Verify session exists
+		const sessionBefore = await validateSession(sessionId);
+		expect(sessionBefore).toBeDefined();
+		expect(sessionBefore?.userId).toBe(testUserId);
+
+		// Delete session (simulating logout)
+		await deleteSession(sessionId);
+
+		// Verify session is deleted
+		const sessionAfter = await validateSession(sessionId);
+		expect(sessionAfter).toBeNull();
+	});
+
+	it('should handle deleting non-existent session gracefully', async () => {
+		// Should not throw an error when deleting a non-existent session
+		await expect(deleteSession('non-existent-session-id')).resolves.not.toThrow();
+	});
+
+	it('should not affect other sessions when deleting one session', async () => {
+		// Create two sessions for the same user (e.g., different devices)
+		const sessionId1 = await createSession(testUserId);
+		const sessionId2 = await createSession(testUserId);
+
+		// Verify both sessions exist
+		expect(await validateSession(sessionId1)).toBeDefined();
+		expect(await validateSession(sessionId2)).toBeDefined();
+
+		// Delete first session
+		await deleteSession(sessionId1);
+
+		// Verify first session is deleted but second remains
+		expect(await validateSession(sessionId1)).toBeNull();
+		expect(await validateSession(sessionId2)).toBeDefined();
+	});
+
+	it('should invalidate session after logout preventing access', async () => {
+		// Create a session
+		const sessionId = await createSession(testUserId);
+
+		// Session should be valid
+		const validSession = await validateSession(sessionId);
+		expect(validSession).toBeDefined();
+		expect(validSession?.user.email).toBe(testEmail);
+
+		// Logout (delete session)
+		await deleteSession(sessionId);
+
+		// Attempting to validate the same session ID should fail
+		const invalidSession = await validateSession(sessionId);
+		expect(invalidSession).toBeNull();
+	});
+});

@@ -4,6 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 
 	let { form } = $props();
 </script>
@@ -63,8 +64,9 @@
 			<Card.Footer class="flex justify-center">
 				<p class="text-sm text-muted-foreground">
 					Don't have an account?
-					<a href="/auth/register" class="text-primary underline-offset-4 hover:underline"
-						>Register</a
+					<a
+						href={resolve('/auth/register')}
+						class="text-primary underline-offset-4 hover:underline">Register</a
 					>
 				</p>
 			</Card.Footer>
