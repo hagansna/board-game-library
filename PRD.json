@@ -698,7 +698,7 @@
 				"Run script and verify existing games are updated",
 				"Run script again - verify already-populated games are skipped"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 30,
