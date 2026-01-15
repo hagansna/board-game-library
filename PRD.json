@@ -29,7 +29,7 @@
 				"Verify user is redirected to library page or login page",
 				"Attempt duplicate registration - verify error message displays"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 2,
@@ -51,7 +51,7 @@
 				"Attempt login with invalid credentials - verify error message",
 				"Verify protected routes are now accessible"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 3,
@@ -164,7 +164,7 @@
 				"Refresh page - verify changes persist",
 				"Check database - verify updated fields"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 8,
@@ -186,7 +186,7 @@
 				"Refresh page - verify deleted game does not reappear",
 				"Check database - verify game record is removed or marked deleted"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 9,
@@ -326,6 +326,59 @@
 				"Toggle back to light mode - verify persistence",
 				"Close and reopen browser - verify theme preference retained",
 				"Test with OS in dark mode - verify app defaults to dark on first visit"
+			],
+			"passes": false
+		},
+		{
+			"id": 15,
+			"category": "library-management",
+			"description": "User can add box art to a game via image URL or file upload",
+			"acceptanceCriteria": [
+				"Add/Edit game form includes optional box art field",
+				"User can provide an image URL for box art",
+				"User can upload an image file for box art (JPG, PNG, WebP)",
+				"Image preview displays after URL entry or file selection",
+				"Uploaded images are stored and accessible",
+				"URL validation ensures valid image URLs",
+				"File size limit enforced for uploads (e.g., 5MB max)",
+				"Box art can be removed or replaced when editing"
+			],
+			"steps": [
+				"Navigate to Add Game form",
+				"Locate box art field (should show URL input and upload option)",
+				"Enter a valid image URL - verify preview displays",
+				"Clear URL and use file upload instead - verify preview displays",
+				"Submit form with box art - verify game is created",
+				"Navigate to Edit Game form - verify existing box art is shown",
+				"Replace box art with different image - verify update works",
+				"Remove box art entirely - verify game saves without image",
+				"Test with invalid URL - verify error message",
+				"Test with oversized file - verify size limit error"
+			],
+			"passes": false
+		},
+		{
+			"id": 16,
+			"category": "library-management",
+			"description": "Box art is displayed on game cards in the library",
+			"acceptanceCriteria": [
+				"Game cards display box art image when available",
+				"Placeholder or icon shown when no box art exists",
+				"Images are properly sized and don't distort",
+				"Images load efficiently (lazy loading, appropriate sizing)",
+				"Alt text is provided for accessibility",
+				"Broken image URLs are handled gracefully"
+			],
+			"steps": [
+				"Add a game with box art image",
+				"Navigate to library page",
+				"Verify game card displays the box art image",
+				"Verify image is properly sized within card",
+				"Add a game without box art",
+				"Verify placeholder or default state displays appropriately",
+				"Test with broken image URL - verify graceful fallback",
+				"Inspect network tab - verify images use appropriate sizing",
+				"Check accessibility - verify alt text on images"
 			],
 			"passes": false
 		}
