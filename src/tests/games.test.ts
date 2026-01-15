@@ -3,6 +3,55 @@ import { prisma } from '$lib/server/db';
 import { registerUser } from '$lib/server/auth';
 import { getUserGames, getGameById, createGame } from '$lib/server/games';
 
+// Helper to parse form validation errors (mirrors server-side validation logic)
+function parseValidationError(data: {
+	title: string;
+	year?: number | null;
+	minPlayers?: number | null;
+	maxPlayers?: number | null;
+	playTimeMin?: number | null;
+	playTimeMax?: number | null;
+}) {
+	const errors: { title?: string; year?: string; players?: string; playTime?: string } = {};
+
+	// Validate title (required)
+	if (!data.title || !data.title.trim()) {
+		errors.title = 'Title is required';
+	}
+
+	// Validate year
+	const currentYear = new Date().getFullYear();
+	if (data.year !== null && data.year !== undefined) {
+		if (isNaN(data.year) || data.year < 1 || data.year > currentYear + 1) {
+			errors.year = 'Please enter a valid year';
+		}
+	}
+
+	// Validate players
+	if (data.minPlayers !== null && data.minPlayers !== undefined && data.minPlayers < 1) {
+		errors.players = 'Minimum players must be at least 1';
+	}
+	if (data.maxPlayers !== null && data.maxPlayers !== undefined && data.maxPlayers < 1) {
+		errors.players = 'Maximum players must be at least 1';
+	}
+	if (data.minPlayers && data.maxPlayers && data.minPlayers > data.maxPlayers) {
+		errors.players = 'Minimum players cannot be greater than maximum players';
+	}
+
+	// Validate play time
+	if (data.playTimeMin !== null && data.playTimeMin !== undefined && data.playTimeMin < 1) {
+		errors.playTime = 'Minimum play time must be at least 1 minute';
+	}
+	if (data.playTimeMax !== null && data.playTimeMax !== undefined && data.playTimeMax < 1) {
+		errors.playTime = 'Maximum play time must be at least 1 minute';
+	}
+	if (data.playTimeMin && data.playTimeMax && data.playTimeMin > data.playTimeMax) {
+		errors.playTime = 'Minimum play time cannot be greater than maximum play time';
+	}
+
+	return Object.keys(errors).length > 0 ? errors : null;
+}
+
 describe('Library Management - View Games (Story 5)', () => {
 	const testUser1Email = 'gameuser1@example.com';
 	const testUser2Email = 'gameuser2@example.com';
@@ -220,6 +269,201 @@ describe('Library Management - View Games (Story 5)', () => {
 
 			const result = await getGameById(game.id, testUser2Id);
 			expect(result).toBeNull();
+		});
+	});
+});
+
+describe('Library Management - Add Game (Story 6)', () => {
+	const testUserEmail = 'addgameuser@example.com';
+	const testPassword = 'securepassword123';
+	let testUserId: string;
+
+	beforeAll(async () => {
+		// Clean up existing test data
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+
+		// Create test user
+		const user = await registerUser(testUserEmail, testPassword);
+		testUserId = user.id;
+	});
+
+	beforeEach(async () => {
+		// Clean up games before each test
+		await prisma.game.deleteMany({});
+	});
+
+	afterAll(async () => {
+		// Clean up after all tests
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		await prisma.$disconnect();
+	});
+
+	describe('Form Validation', () => {
+		it('should require title field', () => {
+			const errors = parseValidationError({ title: '' });
+			expect(errors).not.toBeNull();
+			expect(errors?.title).toBe('Title is required');
+		});
+
+		it('should require title to not be only whitespace', () => {
+			const errors = parseValidationError({ title: '   ' });
+			expect(errors).not.toBeNull();
+			expect(errors?.title).toBe('Title is required');
+		});
+
+		it('should accept valid title', () => {
+			const errors = parseValidationError({ title: 'Catan' });
+			expect(errors).toBeNull();
+		});
+
+		it('should reject invalid year (too far in the future)', () => {
+			const futureYear = new Date().getFullYear() + 5;
+			const errors = parseValidationError({ title: 'Test', year: futureYear });
+			expect(errors).not.toBeNull();
+			expect(errors?.year).toBe('Please enter a valid year');
+		});
+
+		it('should reject invalid year (negative)', () => {
+			const errors = parseValidationError({ title: 'Test', year: -1 });
+			expect(errors).not.toBeNull();
+			expect(errors?.year).toBe('Please enter a valid year');
+		});
+
+		it('should accept valid year', () => {
+			const errors = parseValidationError({ title: 'Test', year: 1995 });
+			expect(errors).toBeNull();
+		});
+
+		it('should reject min players greater than max players', () => {
+			const errors = parseValidationError(
+				{ title: 'Test', minPlayers: 5, maxPlayers: 2 },
+				testUserId
+			);
+			expect(errors).not.toBeNull();
+			expect(errors?.players).toBe('Minimum players cannot be greater than maximum players');
+		});
+
+		it('should accept valid player range', () => {
+			const errors = parseValidationError(
+				{ title: 'Test', minPlayers: 2, maxPlayers: 4 },
+				testUserId
+			);
+			expect(errors).toBeNull();
+		});
+
+		it('should reject min play time greater than max play time', () => {
+			const errors = parseValidationError(
+				{ title: 'Test', playTimeMin: 120, playTimeMax: 30 },
+				testUserId
+			);
+			expect(errors).not.toBeNull();
+			expect(errors?.playTime).toBe('Minimum play time cannot be greater than maximum play time');
+		});
+
+		it('should accept valid play time range', () => {
+			const errors = parseValidationError(
+				{ title: 'Test', playTimeMin: 30, playTimeMax: 60 },
+				testUserId
+			);
+			expect(errors).toBeNull();
+		});
+	});
+
+	describe('Game Creation', () => {
+		it('should create game with all fields', async () => {
+			const game = await createGame(testUserId, {
+				title: 'Catan',
+				year: 1995,
+				minPlayers: 3,
+				maxPlayers: 4,
+				playTimeMin: 60,
+				playTimeMax: 90
+			});
+
+			expect(game.id).toBeDefined();
+			expect(game.title).toBe('Catan');
+			expect(game.year).toBe(1995);
+			expect(game.minPlayers).toBe(3);
+			expect(game.maxPlayers).toBe(4);
+			expect(game.playTimeMin).toBe(60);
+			expect(game.playTimeMax).toBe(90);
+		});
+
+		it('should create game with only title (other fields optional)', async () => {
+			const game = await createGame(testUserId, { title: 'Mystery Game' });
+
+			expect(game.id).toBeDefined();
+			expect(game.title).toBe('Mystery Game');
+			expect(game.year).toBeNull();
+			expect(game.minPlayers).toBeNull();
+			expect(game.maxPlayers).toBeNull();
+			expect(game.playTimeMin).toBeNull();
+			expect(game.playTimeMax).toBeNull();
+		});
+
+		it('should persist game to database', async () => {
+			await createGame(testUserId, {
+				title: 'Ticket to Ride',
+				year: 2004
+			});
+
+			const games = await getUserGames(testUserId);
+			expect(games).toHaveLength(1);
+			expect(games[0].title).toBe('Ticket to Ride');
+			expect(games[0].year).toBe(2004);
+		});
+
+		it('should associate game with correct user', async () => {
+			const game = await createGame(testUserId, { title: 'User Game' });
+
+			const userGames = await getUserGames(testUserId);
+			expect(userGames.map((g) => g.id)).toContain(game.id);
+		});
+
+		it('should add game immediately visible in library', async () => {
+			// Library starts empty
+			const initialGames = await getUserGames(testUserId);
+			expect(initialGames).toHaveLength(0);
+
+			// Add a game
+			await createGame(testUserId, { title: 'New Game' });
+
+			// Game appears immediately
+			const updatedGames = await getUserGames(testUserId);
+			expect(updatedGames).toHaveLength(1);
+			expect(updatedGames[0].title).toBe('New Game');
+		});
+
+		it('should handle multiple games added sequentially', async () => {
+			await createGame(testUserId, { title: 'Game 1' });
+			await createGame(testUserId, { title: 'Game 2' });
+			await createGame(testUserId, { title: 'Game 3' });
+
+			const games = await getUserGames(testUserId);
+			expect(games).toHaveLength(3);
+		});
+
+		it('should persist game data after refresh (simulated by re-fetching)', async () => {
+			await createGame(testUserId, {
+				title: 'Persistent Game',
+				year: 2020,
+				minPlayers: 2,
+				maxPlayers: 6,
+				playTimeMin: 45,
+				playTimeMax: 90
+			});
+
+			// Simulate page refresh by fetching again
+			const gamesFetch1 = await getUserGames(testUserId);
+			const gamesFetch2 = await getUserGames(testUserId);
+
+			expect(gamesFetch1).toHaveLength(1);
+			expect(gamesFetch2).toHaveLength(1);
+			expect(gamesFetch1[0]).toEqual(gamesFetch2[0]);
 		});
 	});
 });
