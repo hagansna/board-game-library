@@ -18,6 +18,7 @@
 		categories?: string[] | null;
 		bggRating?: number | null;
 		bggRank?: number | null;
+		suggestedAge?: number | null;
 	}
 
 	let {
@@ -32,7 +33,8 @@
 		description,
 		categories,
 		bggRating,
-		bggRank
+		bggRank,
+		suggestedAge
 	}: Props = $props();
 
 	// Categories are already an array from the database
@@ -111,7 +113,7 @@
 		{/if}
 	</Card.Header>
 	<Card.Content class="space-y-3">
-		<!-- Player count and play time -->
+		<!-- Player count, play time, and suggested age -->
 		<div class="flex flex-wrap gap-3 text-sm text-muted-foreground">
 			{#if playersText}
 				<span class="flex items-center gap-1">
@@ -153,6 +155,26 @@
 						<polyline points="12 6 12 12 16 14" />
 					</svg>
 					{playTimeText}
+				</span>
+			{/if}
+			{#if suggestedAge != null}
+				<span class="flex items-center gap-1" title="Suggested minimum age">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="inline-block"
+					>
+						<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+						<circle cx="12" cy="7" r="4" />
+					</svg>
+					Ages {suggestedAge}+
 				</span>
 			{/if}
 		</div>
