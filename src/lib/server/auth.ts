@@ -54,6 +54,40 @@ export async function validateSession(sessionId: string) {
 	return session;
 }
 
+/**
+ * Refreshes session expiration if it's within the refresh threshold.
+ * This implements a sliding session - sessions are extended when the user
+ * is actively using the app and the session is close to expiring.
+ * Returns true if session was refreshed, false otherwise.
+ */
+export async function refreshSessionIfNeeded(sessionId: string): Promise<boolean> {
+	const session = await prisma.session.findUnique({
+		where: { id: sessionId }
+	});
+
+	if (!session) {
+		return false;
+	}
+
+	// Refresh if session will expire within 15 days (half of session duration)
+	const refreshThreshold = new Date();
+	refreshThreshold.setDate(refreshThreshold.getDate() + SESSION_DURATION_DAYS / 2);
+
+	if (session.expiresAt < refreshThreshold) {
+		const newExpiresAt = new Date();
+		newExpiresAt.setDate(newExpiresAt.getDate() + SESSION_DURATION_DAYS);
+
+		await prisma.session.update({
+			where: { id: sessionId },
+			data: { expiresAt: newExpiresAt }
+		});
+
+		return true;
+	}
+
+	return false;
+}
+
 export async function deleteSession(sessionId: string): Promise<void> {
 	await prisma.session.delete({ where: { id: sessionId } }).catch(() => {
 		// Session may already be deleted

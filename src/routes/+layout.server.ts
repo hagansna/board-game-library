@@ -1,5 +1,10 @@
 import type { LayoutServerLoad } from './$types';
-import { getSessionCookie, validateSession } from '$lib/server/auth';
+import {
+	getSessionCookie,
+	validateSession,
+	refreshSessionIfNeeded,
+	setSessionCookie
+} from '$lib/server/auth';
 
 export const load: LayoutServerLoad = async ({ cookies }) => {
 	const sessionId = getSessionCookie(cookies);
@@ -12,6 +17,14 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 
 	if (!session) {
 		return { user: null };
+	}
+
+	// Refresh session if it's close to expiring (sliding session)
+	// This ensures active users don't get logged out unexpectedly
+	const wasRefreshed = await refreshSessionIfNeeded(sessionId);
+	if (wasRefreshed) {
+		// Update cookie with new expiration
+		setSessionCookie(cookies, sessionId);
 	}
 
 	return {

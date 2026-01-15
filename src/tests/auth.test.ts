@@ -8,7 +8,8 @@ import {
 	findUserByEmail,
 	createSession,
 	validateSession,
-	deleteSession
+	deleteSession,
+	refreshSessionIfNeeded
 } from '$lib/server/auth';
 import { prisma } from '$lib/server/db';
 
@@ -310,5 +311,170 @@ describe('User Logout', () => {
 		// Attempting to validate the same session ID should fail
 		const invalidSession = await validateSession(sessionId);
 		expect(invalidSession).toBeNull();
+	});
+});
+
+describe('Session Persistence (Story 4)', () => {
+	const testEmail = 'persistence@example.com';
+	const testPassword = 'securepassword123';
+	let testUserId: string;
+
+	beforeAll(async () => {
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		const user = await registerUser(testEmail, testPassword);
+		testUserId = user.id;
+	});
+
+	beforeEach(async () => {
+		await prisma.session.deleteMany({});
+	});
+
+	afterAll(async () => {
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		await prisma.$disconnect();
+	});
+
+	it('should persist session data in database for later retrieval', async () => {
+		// Create session (simulates login)
+		const sessionId = await createSession(testUserId);
+
+		// Simulate page refresh - fetch session fresh from database
+		const refreshedSession = await validateSession(sessionId);
+		expect(refreshedSession).toBeDefined();
+		expect(refreshedSession?.userId).toBe(testUserId);
+		expect(refreshedSession?.user.email).toBe(testEmail);
+	});
+
+	it('should create session with 30-day expiration', async () => {
+		const sessionId = await createSession(testUserId);
+
+		const session = await prisma.session.findUnique({
+			where: { id: sessionId }
+		});
+
+		expect(session).toBeDefined();
+
+		// Check expiration is approximately 30 days from now
+		const expectedExpiry = new Date();
+		expectedExpiry.setDate(expectedExpiry.getDate() + 30);
+
+		const timeDiff = Math.abs(session!.expiresAt.getTime() - expectedExpiry.getTime());
+		// Allow 1 second tolerance for test execution time
+		expect(timeDiff).toBeLessThan(1000);
+	});
+
+	it('should validate session multiple times (simulating page navigations)', async () => {
+		const sessionId = await createSession(testUserId);
+
+		// First page load
+		const session1 = await validateSession(sessionId);
+		expect(session1).toBeDefined();
+
+		// Second page load
+		const session2 = await validateSession(sessionId);
+		expect(session2).toBeDefined();
+
+		// Third page load
+		const session3 = await validateSession(sessionId);
+		expect(session3).toBeDefined();
+
+		// All should return the same user
+		expect(session1?.userId).toBe(session2?.userId);
+		expect(session2?.userId).toBe(session3?.userId);
+	});
+
+	it('should expire session after expiration date', async () => {
+		// Create a session
+		const sessionId = await createSession(testUserId);
+
+		// Manually set expiration to past (simulating 30 days passing)
+		const pastDate = new Date();
+		pastDate.setDate(pastDate.getDate() - 1);
+		await prisma.session.update({
+			where: { id: sessionId },
+			data: { expiresAt: pastDate }
+		});
+
+		// Session should now be invalid
+		const expiredSession = await validateSession(sessionId);
+		expect(expiredSession).toBeNull();
+
+		// Session should be deleted from database
+		const dbSession = await prisma.session.findUnique({
+			where: { id: sessionId }
+		});
+		expect(dbSession).toBeNull();
+	});
+
+	it('should not refresh session that is not close to expiring', async () => {
+		const sessionId = await createSession(testUserId);
+
+		// Session with full 30-day validity should not be refreshed
+		const wasRefreshed = await refreshSessionIfNeeded(sessionId);
+		expect(wasRefreshed).toBe(false);
+	});
+
+	it('should refresh session when close to expiration (sliding session)', async () => {
+		const sessionId = await createSession(testUserId);
+
+		// Set expiration to 10 days from now (within 15-day threshold)
+		const tenDaysFromNow = new Date();
+		tenDaysFromNow.setDate(tenDaysFromNow.getDate() + 10);
+		await prisma.session.update({
+			where: { id: sessionId },
+			data: { expiresAt: tenDaysFromNow }
+		});
+
+		// Get original expiration
+		const beforeRefresh = await prisma.session.findUnique({
+			where: { id: sessionId }
+		});
+
+		// Session should be refreshed
+		const wasRefreshed = await refreshSessionIfNeeded(sessionId);
+		expect(wasRefreshed).toBe(true);
+
+		// New expiration should be 30 days from now
+		const afterRefresh = await prisma.session.findUnique({
+			where: { id: sessionId }
+		});
+
+		expect(afterRefresh!.expiresAt.getTime()).toBeGreaterThan(beforeRefresh!.expiresAt.getTime());
+
+		const expectedNewExpiry = new Date();
+		expectedNewExpiry.setDate(expectedNewExpiry.getDate() + 30);
+		const timeDiff = Math.abs(afterRefresh!.expiresAt.getTime() - expectedNewExpiry.getTime());
+		expect(timeDiff).toBeLessThan(1000);
+	});
+
+	it('should return false when refreshing non-existent session', async () => {
+		const wasRefreshed = await refreshSessionIfNeeded('non-existent-id');
+		expect(wasRefreshed).toBe(false);
+	});
+
+	it('should allow multiple sessions for the same user (multiple devices)', async () => {
+		// Create sessions simulating different devices
+		const session1 = await createSession(testUserId);
+		const session2 = await createSession(testUserId);
+		const session3 = await createSession(testUserId);
+
+		// All sessions should be valid
+		expect(await validateSession(session1)).toBeDefined();
+		expect(await validateSession(session2)).toBeDefined();
+		expect(await validateSession(session3)).toBeDefined();
+
+		// All sessions are different
+		expect(session1).not.toBe(session2);
+		expect(session2).not.toBe(session3);
+	});
+
+	it('should maintain session user association correctly', async () => {
+		const sessionId = await createSession(testUserId);
+
+		const session = await validateSession(sessionId);
+		expect(session?.user.id).toBe(testUserId);
+		expect(session?.user.email).toBe(testEmail);
 	});
 });
