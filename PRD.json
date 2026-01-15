@@ -380,7 +380,7 @@
 				"Inspect network tab - verify images use appropriate sizing",
 				"Check accessibility - verify alt text on images"
 			],
-			"passes": false
+			"passes": true
 		}
 	]
 }
