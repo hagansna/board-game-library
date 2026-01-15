@@ -327,7 +327,7 @@
 				"Close and reopen browser - verify theme preference retained",
 				"Test with OS in dark mode - verify app defaults to dark on first visit"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 15,
