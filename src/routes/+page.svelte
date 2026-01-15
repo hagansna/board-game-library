@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
-	import { Label } from '$lib/components/ui/label';
+	import { resolve } from '$app/paths';
 </script>
 
 <div class="min-h-screen bg-background p-8">
@@ -18,19 +17,14 @@
 			<Card.Header>
 				<Card.Title>Welcome</Card.Title>
 				<Card.Description>
-					This application uses shadcn-svelte components for a consistent, accessible UI.
+					Track your board game collection with ease. Upload photos of game boxes and let AI
+					automatically add them to your library.
 				</Card.Description>
 			</Card.Header>
 			<Card.Content class="space-y-4">
-				<div class="space-y-2">
-					<Label for="example-input">Example Input</Label>
-					<Input id="example-input" placeholder="Type something..." />
-				</div>
-				<div class="flex gap-2">
-					<Button>Primary Button</Button>
-					<Button variant="secondary">Secondary</Button>
-					<Button variant="outline">Outline</Button>
-					<Button variant="destructive">Destructive</Button>
+				<div class="flex flex-col gap-3 sm:flex-row sm:justify-center">
+					<Button href={resolve('/auth/login')}>Sign In</Button>
+					<Button variant="outline" href={resolve('/auth/register')}>Create Account</Button>
 				</div>
 			</Card.Content>
 		</Card.Root>

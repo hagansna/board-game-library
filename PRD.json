@@ -116,7 +116,7 @@
 				"Log in as new user with no games",
 				"Verify empty state message displays (e.g., 'No games yet. Add your first game!')"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 6,
