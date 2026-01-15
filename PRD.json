@@ -558,7 +558,7 @@
 				"Navigate away and return - verify sort preference retained",
 				"Apply search filter - verify sort still applies to results"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 24,
