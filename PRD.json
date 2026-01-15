@@ -431,7 +431,7 @@
 				"Test with crowded shelf image - verify AI handles partial/unclear games",
 				"Verify low-confidence games are marked as such"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 19,
