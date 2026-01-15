@@ -70,6 +70,7 @@
 		analysisResults = new Map();
 		uploadedImages = [];
 		showBatchReview = false;
+		selectionInitialized = false;
 
 		const newFiles: File[] = [];
 		const newUrls = new Map<string, string>();
@@ -191,6 +192,7 @@
 		uploadedImages = [];
 		manualEntryMode = false;
 		showBatchReview = false;
+		selectionInitialized = false;
 
 		// Reset edit fields
 		resetEditFields();
@@ -423,6 +425,9 @@
 	// Track which games are selected for adding to library (key: "imageIndex-gameIndex")
 	let selectedGames = $state<Set<string>>(new Set());
 
+	// Track whether we've initialized selection for the current batch
+	let selectionInitialized = $state(false);
+
 	// Track which game is currently being edited (key: "imageIndex-gameIndex")
 	let editingGameKey = $state<string | null>(null);
 
@@ -476,9 +481,9 @@
 		batchEditData = null;
 	}
 
-	// Initialize selectedGames when results change
+	// Initialize selectedGames when entering batch review (only once per batch)
 	$effect(() => {
-		if (showBatchReview && analysisResults.size > 0) {
+		if (showBatchReview && analysisResults.size > 0 && !selectionInitialized) {
 			// Auto-select all successful results
 			const newSelected = new Set<string>();
 			for (const [imageIndex, result] of analysisResults.entries()) {
@@ -491,6 +496,7 @@
 				}
 			}
 			selectedGames = newSelected;
+			selectionInitialized = true;
 		}
 	});
 
