@@ -28,87 +28,230 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const file = formData.get('image') as File | null;
+		const files = formData.getAll('images') as File[];
 
 		// Validate file presence
-		if (!file || file.size === 0) {
+		if (!files || files.length === 0 || (files.length === 1 && files[0].size === 0)) {
 			return fail(400, {
-				error: 'Please select an image file to upload'
+				error: 'Please select at least one image file to upload'
 			});
 		}
 
-		// Validate file type
-		const mimeType = file.type.toLowerCase();
-		if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-			return fail(400, {
-				error: 'Invalid file type. Please upload a JPG, PNG, or HEIC image.'
+		const processedImages: Array<{ imageData: string; mimeType: string; fileName: string }> = [];
+		const errors: string[] = [];
+
+		for (const file of files) {
+			// Skip empty files
+			if (!file || file.size === 0) {
+				continue;
+			}
+
+			// Validate file type
+			const mimeType = file.type.toLowerCase();
+			if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+				errors.push(`${file.name}: Invalid file type. Please upload JPG, PNG, or HEIC images.`);
+				continue;
+			}
+
+			// Validate file size
+			if (file.size > MAX_FILE_SIZE) {
+				const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+				errors.push(`${file.name}: File size (${sizeMB}MB) exceeds the 10MB limit.`);
+				continue;
+			}
+
+			// Convert file to base64 for storage/transmission
+			const arrayBuffer = await file.arrayBuffer();
+			const base64 = Buffer.from(arrayBuffer).toString('base64');
+			const dataUrl = `data:${file.type};base64,${base64}`;
+
+			processedImages.push({
+				imageData: dataUrl,
+				mimeType: file.type,
+				fileName: file.name
 			});
 		}
 
-		// Validate file size
-		if (file.size > MAX_FILE_SIZE) {
-			const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+		// If no valid files were processed
+		if (processedImages.length === 0) {
 			return fail(400, {
-				error: `File size (${sizeMB}MB) exceeds the 10MB limit.`
+				error:
+					errors.length > 0
+						? errors.join('\n')
+						: 'No valid image files were found. Please upload JPG, PNG, or HEIC images.'
 			});
 		}
 
-		// Convert file to base64 for storage/transmission
-		const arrayBuffer = await file.arrayBuffer();
-		const base64 = Buffer.from(arrayBuffer).toString('base64');
-		const dataUrl = `data:${file.type};base64,${base64}`;
-
-		// Return success with image data for preview and AI analysis
+		// Return success with all processed images
 		return {
 			success: true,
-			imageData: dataUrl,
-			fileName: file.name,
-			fileSize: file.size,
-			mimeType: file.type
+			images: processedImages,
+			skippedCount: errors.length,
+			skippedErrors: errors.length > 0 ? errors : undefined
 		};
 	},
 
-	analyze: async ({ request, locals }) => {
+	analyzeAll: async ({ request, locals }) => {
 		// Check authentication
 		if (!locals.user) {
 			throw redirect(302, '/auth/login');
 		}
 
 		const formData = await request.formData();
-		const imageData = formData.get('imageData') as string | null;
-		const mimeType = formData.get('mimeType') as string | null;
+		const imagesJson = formData.get('images') as string | null;
 
-		// Validate image data
-		if (!imageData || !mimeType) {
+		if (!imagesJson) {
 			return fail(400, {
-				analyzeError: 'No image data provided for analysis'
+				analyzeError: 'No images provided for analysis'
 			});
 		}
 
-		// Extract base64 data from data URL
-		const base64Match = imageData.match(/^data:([^;]+);base64,(.+)$/);
-		if (!base64Match) {
+		let images: Array<{ imageData: string; mimeType: string; fileName: string }>;
+		try {
+			images = JSON.parse(imagesJson);
+		} catch {
 			return fail(400, {
 				analyzeError: 'Invalid image data format'
 			});
 		}
 
-		const base64Data = base64Match[2];
-
-		// Call Gemini AI for analysis
-		const result = await analyzeGameImage(base64Data, mimeType);
-
-		if (!result.success) {
-			return fail(500, {
-				analyzeError: result.error || 'Failed to analyze the image'
+		if (!Array.isArray(images) || images.length === 0) {
+			return fail(400, {
+				analyzeError: 'No images provided for analysis'
 			});
 		}
 
-		// Return the extracted game data
+		// Analyze all images
+		const results: Array<{
+			success: boolean;
+			gameData: ExtractedGameData | null;
+			error: string | null;
+			fileName: string;
+		}> = [];
+
+		for (const image of images) {
+			// Extract base64 data from data URL
+			const base64Match = image.imageData.match(/^data:([^;]+);base64,(.+)$/);
+			if (!base64Match) {
+				results.push({
+					success: false,
+					gameData: null,
+					error: 'Invalid image data format',
+					fileName: image.fileName
+				});
+				continue;
+			}
+
+			const base64Data = base64Match[2];
+
+			// Call Gemini AI for analysis
+			const result = await analyzeGameImage(base64Data, image.mimeType);
+
+			if (!result.success) {
+				results.push({
+					success: false,
+					gameData: null,
+					error: result.error || 'Failed to analyze the image',
+					fileName: image.fileName
+				});
+			} else {
+				results.push({
+					success: true,
+					gameData: result.data,
+					error: null,
+					fileName: image.fileName
+				});
+			}
+		}
+
+		// Return all results
 		return {
-			analyzed: true,
-			gameData: result.data as ExtractedGameData,
-			confidence: result.data?.confidence || 'low'
+			batchAnalyzed: true,
+			results,
+			totalCount: images.length,
+			successCount: results.filter((r) => r.success && r.gameData?.title).length
+		};
+	},
+
+	addSelectedToLibrary: async ({ request, locals }) => {
+		// Check authentication
+		if (!locals.user) {
+			throw redirect(302, '/auth/login');
+		}
+
+		const formData = await request.formData();
+		const gamesJson = formData.get('games') as string | null;
+
+		if (!gamesJson) {
+			return fail(400, {
+				addError: 'No games provided'
+			});
+		}
+
+		let games: ExtractedGameData[];
+		try {
+			games = JSON.parse(gamesJson);
+		} catch {
+			return fail(400, {
+				addError: 'Invalid game data format'
+			});
+		}
+
+		if (!Array.isArray(games) || games.length === 0) {
+			return fail(400, {
+				addError: 'No games selected to add'
+			});
+		}
+
+		// Add all selected games
+		const addedGames: string[] = [];
+		const errors: string[] = [];
+
+		for (const gameData of games) {
+			// Validate title
+			if (!gameData.title || gameData.title.trim() === '') {
+				errors.push('A game is missing a title');
+				continue;
+			}
+
+			try {
+				// Parse categories if present
+				let categories: string | null = null;
+				if (gameData.categories && Array.isArray(gameData.categories)) {
+					categories = JSON.stringify(gameData.categories);
+				}
+
+				await createGame(locals.user.id, {
+					title: gameData.title.trim(),
+					year: gameData.year,
+					minPlayers: gameData.minPlayers,
+					maxPlayers: gameData.maxPlayers,
+					playTimeMin: gameData.playTimeMin,
+					playTimeMax: gameData.playTimeMax,
+					description: gameData.description,
+					categories,
+					bggRating: gameData.bggRating,
+					bggRank: gameData.bggRank
+				});
+
+				addedGames.push(gameData.title);
+			} catch (error) {
+				console.error('Error creating game:', error);
+				errors.push(`Failed to add ${gameData.title}`);
+			}
+		}
+
+		if (addedGames.length === 0) {
+			return fail(500, {
+				addError: 'Failed to add any games. Please try again.'
+			});
+		}
+
+		// Return success
+		return {
+			added: true,
+			addedCount: addedGames.length,
+			addedGames
 		};
 	},
 
