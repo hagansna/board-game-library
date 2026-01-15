@@ -407,7 +407,7 @@
 				"Test with one corrupted/invalid file in batch - verify other files still process",
 				"Verify summary shows 'Found X games across Y images'"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 18,
