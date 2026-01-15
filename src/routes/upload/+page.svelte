@@ -26,6 +26,9 @@
 	let analysisResult = $state<ExtractedGameData | null>(null);
 	let analysisError = $state<string | null>(null);
 
+	// State for manual entry mode (when AI fails or user chooses to skip AI)
+	let manualEntryMode = $state(false);
+
 	// Editable form fields for review
 	let editTitle = $state('');
 	let editPublisher = $state('');
@@ -139,6 +142,35 @@
 		analysisError = null;
 		uploadedImageData = null;
 		uploadedMimeType = null;
+		// Reset manual entry mode
+		manualEntryMode = false;
+	}
+
+	// Enter manual entry mode
+	function enterManualMode() {
+		manualEntryMode = true;
+		analysisError = null;
+		// Clear any existing form data
+		editTitle = '';
+		editPublisher = '';
+		editYear = '';
+		editMinPlayers = '';
+		editMaxPlayers = '';
+		editPlayTimeMin = '';
+		editPlayTimeMax = '';
+	}
+
+	// Cancel manual entry and return to upload/analysis state
+	function cancelManualEntry() {
+		manualEntryMode = false;
+		// Clear form fields
+		editTitle = '';
+		editPublisher = '';
+		editYear = '';
+		editMinPlayers = '';
+		editMaxPlayers = '';
+		editPlayTimeMin = '';
+		editPlayTimeMax = '';
 	}
 
 	// Format file size for display
@@ -182,6 +214,13 @@
 		editPlayTimeMax = data.playTimeMax?.toString() ?? '';
 	}
 
+	// Check if AI result indicates a failed recognition (low confidence with no title)
+	function isAIRecognitionFailed(gameData: ExtractedGameData | null): boolean {
+		if (!gameData) return true;
+		// Failed if no title was extracted, regardless of confidence
+		return gameData.title === null || gameData.title.trim() === '';
+	}
+
 	// Handle form response updates
 	$effect(() => {
 		if (form) {
@@ -197,9 +236,17 @@
 
 			// Store analysis results and populate editable fields
 			if (form.analyzed && form.gameData) {
-				analysisResult = form.gameData;
-				analysisError = null;
-				populateEditFields(form.gameData);
+				// Check if AI couldn't extract a title (failed recognition)
+				if (isAIRecognitionFailed(form.gameData)) {
+					// Show error message with manual entry option
+					analysisError =
+						'Could not identify the board game from this image. The image may be unclear, or it may not show a recognizable board game box.';
+					analysisResult = null;
+				} else {
+					analysisResult = form.gameData;
+					analysisError = null;
+					populateEditFields(form.gameData);
+				}
 			}
 
 			// Store analysis error
@@ -435,7 +482,7 @@
 		</Card.Root>
 
 		<!-- AI Analysis Section - Shows after upload -->
-		{#if uploadedImageData && !analysisResult}
+		{#if uploadedImageData && !analysisResult && !manualEntryMode}
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>AI Analysis</Card.Title>
@@ -445,49 +492,35 @@
 				</Card.Header>
 				<Card.Content>
 					{#if analysisError}
-						<div class="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-							{analysisError}
-						</div>
-					{/if}
-
-					<form
-						method="POST"
-						action="?/analyze"
-						use:enhance={() => {
-							isAnalyzing = true;
-							return async ({ update }) => {
-								await update();
-								isAnalyzing = false;
-							};
-						}}
-					>
-						<input type="hidden" name="imageData" value={uploadedImageData} />
-						<input type="hidden" name="mimeType" value={uploadedMimeType} />
-
-						<Button type="submit" class="w-full" disabled={isAnalyzing}>
-							{#if isAnalyzing}
+						<div class="mb-4 rounded-md bg-destructive/15 p-4">
+							<div class="flex items-start gap-3">
 								<svg
-									class="mr-2 h-4 w-4 animate-spin"
 									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
+									width="20"
+									height="20"
 									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="mt-0.5 shrink-0 text-destructive"
 								>
-									<circle
-										class="opacity-25"
-										cx="12"
-										cy="12"
-										r="10"
-										stroke="currentColor"
-										stroke-width="4"
-									></circle>
-									<path
-										class="opacity-75"
-										fill="currentColor"
-										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-									></path>
+									<circle cx="12" cy="12" r="10" />
+									<line x1="12" x2="12" y1="8" y2="12" />
+									<line x1="12" x2="12.01" y1="16" y2="16" />
 								</svg>
-								Analyzing with AI...
-							{:else}
+								<div class="space-y-1">
+									<p class="font-medium text-destructive">AI Recognition Failed</p>
+									<p class="text-sm text-destructive/80">{analysisError}</p>
+								</div>
+							</div>
+						</div>
+						<div class="mt-4 space-y-3">
+							<p class="text-sm text-muted-foreground">
+								Don't worry! You can enter the game details manually instead.
+							</p>
+							<Button type="button" onclick={enterManualMode} class="w-full">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									width="16"
@@ -500,23 +533,284 @@
 									stroke-linejoin="round"
 									class="mr-2"
 								>
-									<path
-										d="M12 2a4 4 0 0 0-4 4c0 1.1.45 2.1 1.17 2.83L2 16v6h6l7.17-7.17A4 4 0 1 0 12 2z"
-									/>
-									<circle cx="12" cy="6" r="1" />
+									<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+									<path d="m15 5 4 4" />
 								</svg>
-								Analyze with AI
-							{/if}
-						</Button>
-					</form>
+								Enter Manually
+							</Button>
+							<Button type="button" variant="outline" onclick={clearFile} class="w-full">
+								Try Different Image
+							</Button>
+						</div>
+					{:else}
+						<form
+							method="POST"
+							action="?/analyze"
+							use:enhance={() => {
+								isAnalyzing = true;
+								return async ({ update }) => {
+									await update();
+									isAnalyzing = false;
+								};
+							}}
+						>
+							<input type="hidden" name="imageData" value={uploadedImageData} />
+							<input type="hidden" name="mimeType" value={uploadedMimeType} />
 
-					{#if isAnalyzing}
-						<div class="mt-4 text-center">
-							<p class="text-sm text-muted-foreground">
-								This may take a few seconds while the AI examines the image...
-							</p>
+							<Button type="submit" class="w-full" disabled={isAnalyzing}>
+								{#if isAnalyzing}
+									<svg
+										class="mr-2 h-4 w-4 animate-spin"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											class="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="4"
+										></circle>
+										<path
+											class="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										></path>
+									</svg>
+									Analyzing with AI...
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="mr-2"
+									>
+										<path
+											d="M12 2a4 4 0 0 0-4 4c0 1.1.45 2.1 1.17 2.83L2 16v6h6l7.17-7.17A4 4 0 1 0 12 2z"
+										/>
+										<circle cx="12" cy="6" r="1" />
+									</svg>
+									Analyze with AI
+								{/if}
+							</Button>
+						</form>
+
+						{#if isAnalyzing}
+							<div class="mt-4 text-center">
+								<p class="text-sm text-muted-foreground">
+									This may take a few seconds while the AI examines the image...
+								</p>
+							</div>
+						{/if}
+
+						<div class="mt-4 border-t pt-4">
+							<p class="mb-3 text-center text-sm text-muted-foreground">Or skip AI analysis</p>
+							<Button type="button" variant="outline" onclick={enterManualMode} class="w-full">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="16"
+									height="16"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="mr-2"
+								>
+									<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+									<path d="m15 5 4 4" />
+								</svg>
+								Enter Manually Instead
+							</Button>
 						</div>
 					{/if}
+				</Card.Content>
+			</Card.Root>
+		{/if}
+
+		<!-- Manual Entry Mode - Shows when user chooses to enter manually -->
+		{#if manualEntryMode}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Enter Game Details</Card.Title>
+					<Card.Description>
+						Fill in the game information manually. Only the title is required.
+					</Card.Description>
+				</Card.Header>
+				<Card.Content>
+					<form
+						method="POST"
+						action="?/addToLibrary"
+						use:enhance={() => {
+							isAddingToLibrary = true;
+							return async ({ update }) => {
+								await update();
+								isAddingToLibrary = false;
+							};
+						}}
+						class="space-y-6"
+					>
+						{#if form?.addError}
+							<div class="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+								{form.addError}
+							</div>
+						{/if}
+
+						<div class="space-y-2">
+							<Label for="manual-title">Title <span class="text-destructive">*</span></Label>
+							<Input
+								id="manual-title"
+								name="title"
+								type="text"
+								placeholder="e.g., Catan"
+								bind:value={editTitle}
+								required
+							/>
+							{#if form?.errors?.title}
+								<p class="text-sm text-destructive">{form.errors.title}</p>
+							{/if}
+						</div>
+
+						<div class="space-y-2">
+							<Label for="manual-publisher">Publisher</Label>
+							<Input
+								id="manual-publisher"
+								name="publisher"
+								type="text"
+								placeholder="e.g., Kosmos"
+								bind:value={editPublisher}
+							/>
+						</div>
+
+						<div class="space-y-2">
+							<Label for="manual-year">Year Published</Label>
+							<Input
+								id="manual-year"
+								name="year"
+								type="number"
+								placeholder="e.g., 1995"
+								bind:value={editYear}
+								min="1"
+								max={new Date().getFullYear() + 1}
+							/>
+							{#if form?.errors?.year}
+								<p class="text-sm text-destructive">{form.errors.year}</p>
+							{/if}
+						</div>
+
+						<div class="space-y-2">
+							<Label>Player Count</Label>
+							<div class="flex items-center gap-2">
+								<Input
+									id="manual-minPlayers"
+									name="minPlayers"
+									type="number"
+									placeholder="Min"
+									bind:value={editMinPlayers}
+									min="1"
+									class="flex-1"
+								/>
+								<span class="text-muted-foreground">to</span>
+								<Input
+									id="manual-maxPlayers"
+									name="maxPlayers"
+									type="number"
+									placeholder="Max"
+									bind:value={editMaxPlayers}
+									min="1"
+									class="flex-1"
+								/>
+							</div>
+							{#if form?.errors?.players}
+								<p class="text-sm text-destructive">{form.errors.players}</p>
+							{/if}
+						</div>
+
+						<div class="space-y-2">
+							<Label>Play Time (minutes)</Label>
+							<div class="flex items-center gap-2">
+								<Input
+									id="manual-playTimeMin"
+									name="playTimeMin"
+									type="number"
+									placeholder="Min"
+									bind:value={editPlayTimeMin}
+									min="1"
+									class="flex-1"
+								/>
+								<span class="text-muted-foreground">to</span>
+								<Input
+									id="manual-playTimeMax"
+									name="playTimeMax"
+									type="number"
+									placeholder="Max"
+									bind:value={editPlayTimeMax}
+									min="1"
+									class="flex-1"
+								/>
+							</div>
+							{#if form?.errors?.playTime}
+								<p class="text-sm text-destructive">{form.errors.playTime}</p>
+							{/if}
+						</div>
+
+						<div class="flex gap-4 pt-4">
+							<Button type="button" variant="outline" onclick={cancelManualEntry} class="flex-1">
+								Cancel
+							</Button>
+							<Button type="submit" class="flex-1" disabled={isAddingToLibrary || !editTitle.trim()}>
+								{#if isAddingToLibrary}
+									<svg
+										class="mr-2 h-4 w-4 animate-spin"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+									>
+										<circle
+											class="opacity-25"
+											cx="12"
+											cy="12"
+											r="10"
+											stroke="currentColor"
+											stroke-width="4"
+										></circle>
+										<path
+											class="opacity-75"
+											fill="currentColor"
+											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+										></path>
+									</svg>
+									Adding...
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="16"
+										height="16"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="mr-2"
+									>
+										<path d="M12 5v14" />
+										<path d="M5 12h14" />
+									</svg>
+									Add to Library
+								{/if}
+							</Button>
+						</div>
+					</form>
 				</Card.Content>
 			</Card.Root>
 		{/if}

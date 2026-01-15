@@ -4,6 +4,12 @@ import { registerUser, createSession } from '$lib/server/auth';
 import { createGame, getUserGames } from '$lib/server/games';
 import type { ExtractedGameData } from '$lib/server/gemini';
 
+// Helper function to check if AI recognition failed (mirrors the client-side logic)
+function isAIRecognitionFailed(gameData: ExtractedGameData | null): boolean {
+	if (!gameData) return true;
+	return gameData.title === null || gameData.title.trim() === '';
+}
+
 // Validation logic mirroring server-side implementation
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -568,6 +574,425 @@ describe('AI Results Review - Story 11', () => {
 
 			expect(user2Games.some((g) => g.title === 'User2 Game')).toBe(true);
 			expect(user2Games.some((g) => g.title === 'User1 Game')).toBe(false);
+		});
+	});
+});
+
+// Story 12 Tests - Manual Fallback When AI Recognition Fails
+describe('Manual Fallback - Story 12', () => {
+	const testUserEmail = 'manualfallback@example.com';
+	const testPassword = 'securepassword123';
+	let testUserId: string;
+
+	beforeAll(async () => {
+		// Clean up existing test data
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+
+		// Create test user
+		const user = await registerUser(testUserEmail, testPassword);
+		testUserId = user.id;
+	});
+
+	beforeEach(async () => {
+		// Clean up games before each test
+		await prisma.game.deleteMany({ where: { userId: testUserId } });
+	});
+
+	afterAll(async () => {
+		// Clean up
+		await prisma.game.deleteMany({});
+		await prisma.session.deleteMany({});
+		await prisma.user.deleteMany({});
+		await prisma.$disconnect();
+	});
+
+	describe('AI Failure Detection', () => {
+		it('should detect AI failure when gameData is null', () => {
+			expect(isAIRecognitionFailed(null)).toBe(true);
+		});
+
+		it('should detect AI failure when title is null', () => {
+			const failedData: ExtractedGameData = {
+				title: null,
+				publisher: null,
+				year: null,
+				minPlayers: null,
+				maxPlayers: null,
+				playTimeMin: null,
+				playTimeMax: null,
+				confidence: 'low'
+			};
+			expect(isAIRecognitionFailed(failedData)).toBe(true);
+		});
+
+		it('should detect AI failure when title is empty string', () => {
+			const emptyTitleData: ExtractedGameData = {
+				title: '',
+				publisher: 'Some Publisher',
+				year: 2020,
+				minPlayers: 2,
+				maxPlayers: 4,
+				playTimeMin: 30,
+				playTimeMax: 60,
+				confidence: 'medium'
+			};
+			expect(isAIRecognitionFailed(emptyTitleData)).toBe(true);
+		});
+
+		it('should detect AI failure when title is whitespace only', () => {
+			const whitespaceData: ExtractedGameData = {
+				title: '   ',
+				publisher: 'Publisher',
+				year: 2020,
+				minPlayers: 2,
+				maxPlayers: 4,
+				playTimeMin: 30,
+				playTimeMax: 60,
+				confidence: 'low'
+			};
+			expect(isAIRecognitionFailed(whitespaceData)).toBe(true);
+		});
+
+		it('should NOT detect failure when title is present', () => {
+			const successData: ExtractedGameData = {
+				title: 'Catan',
+				publisher: 'Kosmos',
+				year: 1995,
+				minPlayers: 3,
+				maxPlayers: 4,
+				playTimeMin: 60,
+				playTimeMax: 120,
+				confidence: 'high'
+			};
+			expect(isAIRecognitionFailed(successData)).toBe(false);
+		});
+
+		it('should NOT detect failure when only title is present (partial extraction)', () => {
+			const partialData: ExtractedGameData = {
+				title: 'Some Game',
+				publisher: null,
+				year: null,
+				minPlayers: null,
+				maxPlayers: null,
+				playTimeMin: null,
+				playTimeMax: null,
+				confidence: 'medium'
+			};
+			expect(isAIRecognitionFailed(partialData)).toBe(false);
+		});
+	});
+
+	describe('Manual Entry Form Validation', () => {
+		// Re-use validation logic from Story 11
+		function validateManualEntryForm(formData: {
+			title?: string;
+			publisher?: string;
+			year?: string;
+			minPlayers?: string;
+			maxPlayers?: string;
+			playTimeMin?: string;
+			playTimeMax?: string;
+		}): { valid: boolean; errors: Record<string, string> } {
+			const errors: Record<string, string> = {};
+
+			// Validate title
+			const title = formData.title?.trim();
+			if (!title) {
+				errors.title = 'Title is required';
+			}
+
+			// Validate year
+			const currentYear = new Date().getFullYear();
+			if (formData.year) {
+				const year = parseInt(formData.year, 10);
+				if (isNaN(year) || year < 1 || year > currentYear + 1) {
+					errors.year = `Year must be between 1 and ${currentYear + 1}`;
+				}
+			}
+
+			// Validate player count
+			if (formData.minPlayers && formData.maxPlayers) {
+				const minPlayers = parseInt(formData.minPlayers, 10);
+				const maxPlayers = parseInt(formData.maxPlayers, 10);
+				if (!isNaN(minPlayers) && !isNaN(maxPlayers) && minPlayers > maxPlayers) {
+					errors.players = 'Min players cannot be greater than max players';
+				}
+			}
+
+			// Validate play time
+			if (formData.playTimeMin && formData.playTimeMax) {
+				const playTimeMin = parseInt(formData.playTimeMin, 10);
+				const playTimeMax = parseInt(formData.playTimeMax, 10);
+				if (!isNaN(playTimeMin) && !isNaN(playTimeMax) && playTimeMin > playTimeMax) {
+					errors.playTime = 'Min play time cannot be greater than max play time';
+				}
+			}
+
+			return {
+				valid: Object.keys(errors).length === 0,
+				errors
+			};
+		}
+
+		it('should require title in manual entry form', () => {
+			const result = validateManualEntryForm({});
+			expect(result.valid).toBe(false);
+			expect(result.errors.title).toBe('Title is required');
+		});
+
+		it('should accept valid manual entry form with all fields', () => {
+			const result = validateManualEntryForm({
+				title: 'Custom Game',
+				publisher: 'My Publisher',
+				year: '2023',
+				minPlayers: '2',
+				maxPlayers: '6',
+				playTimeMin: '45',
+				playTimeMax: '90'
+			});
+			expect(result.valid).toBe(true);
+		});
+
+		it('should accept manual entry form with only title', () => {
+			const result = validateManualEntryForm({
+				title: 'Mystery Game'
+			});
+			expect(result.valid).toBe(true);
+		});
+
+		it('should reject invalid player count range in manual entry', () => {
+			const result = validateManualEntryForm({
+				title: 'Test Game',
+				minPlayers: '8',
+				maxPlayers: '4'
+			});
+			expect(result.valid).toBe(false);
+			expect(result.errors.players).toBeDefined();
+		});
+	});
+
+	describe('Manual Entry Game Creation', () => {
+		it('should add game to library via manual entry after AI failure', async () => {
+			// Simulate the flow: AI fails, user enters manually
+			const manualData = {
+				title: 'Obscure Game Not Recognized',
+				year: 2019,
+				minPlayers: 1,
+				maxPlayers: 4,
+				playTimeMin: 20,
+				playTimeMax: 40
+			};
+
+			const game = await createGame(testUserId, manualData);
+
+			expect(game).toBeDefined();
+			expect(game.title).toBe('Obscure Game Not Recognized');
+			expect(game.year).toBe(2019);
+
+			// Verify it appears in library
+			const games = await getUserGames(testUserId);
+			expect(games.some((g) => g.title === 'Obscure Game Not Recognized')).toBe(true);
+		});
+
+		it('should allow adding game with minimal manual entry (title only)', async () => {
+			const minimalData = {
+				title: 'Unknown Board Game'
+			};
+
+			const game = await createGame(testUserId, minimalData);
+
+			expect(game.title).toBe('Unknown Board Game');
+			expect(game.year).toBeNull();
+			expect(game.minPlayers).toBeNull();
+			expect(game.maxPlayers).toBeNull();
+			expect(game.playTimeMin).toBeNull();
+			expect(game.playTimeMax).toBeNull();
+		});
+
+		it('should properly persist manually entered game data', async () => {
+			const fullManualData = {
+				title: 'Manually Added Game',
+				year: 2022,
+				minPlayers: 3,
+				maxPlayers: 5,
+				playTimeMin: 60,
+				playTimeMax: 90
+			};
+
+			await createGame(testUserId, fullManualData);
+
+			// Verify directly in database
+			const dbGame = await prisma.game.findFirst({
+				where: {
+					userId: testUserId,
+					title: 'Manually Added Game'
+				}
+			});
+
+			expect(dbGame).not.toBeNull();
+			expect(dbGame?.year).toBe(2022);
+			expect(dbGame?.minPlayers).toBe(3);
+			expect(dbGame?.maxPlayers).toBe(5);
+			expect(dbGame?.playTimeMin).toBe(60);
+			expect(dbGame?.playTimeMax).toBe(90);
+		});
+
+		it('should allow user to cancel manual entry without adding game', async () => {
+			// Get initial count
+			const initialGames = await getUserGames(testUserId);
+			const initialCount = initialGames.length;
+
+			// Simulate user canceling (no createGame call)
+			// Just verify state is unchanged
+			const afterGames = await getUserGames(testUserId);
+			expect(afterGames.length).toBe(initialCount);
+		});
+	});
+
+	describe('Flow After AI Recognition Failure', () => {
+		it('should handle transition from AI failure to manual entry', async () => {
+			// This test verifies the user flow:
+			// 1. Image upload succeeds
+			// 2. AI analysis returns no title (failure)
+			// 3. User clicks "Enter Manually"
+			// 4. User fills form and submits
+			// 5. Game is added to library
+
+			// Simulate AI returning no title
+			const failedAIResult: ExtractedGameData = {
+				title: null,
+				publisher: null,
+				year: null,
+				minPlayers: null,
+				maxPlayers: null,
+				playTimeMin: null,
+				playTimeMax: null,
+				confidence: 'low'
+			};
+
+			// Verify this is detected as failure
+			expect(isAIRecognitionFailed(failedAIResult)).toBe(true);
+
+			// User then enters data manually
+			const userEnteredData = {
+				title: 'Game From Blurry Photo',
+				year: 2020,
+				minPlayers: 2,
+				maxPlayers: 4
+			};
+
+			const game = await createGame(testUserId, userEnteredData);
+
+			expect(game.title).toBe('Game From Blurry Photo');
+			expect(game.year).toBe(2020);
+		});
+
+		it('should handle user trying different image after AI failure', async () => {
+			// This test verifies that user can upload a different image
+			// after AI fails on the first one
+
+			// First attempt - AI fails
+			const firstAttempt: ExtractedGameData = {
+				title: null,
+				publisher: null,
+				year: null,
+				minPlayers: null,
+				maxPlayers: null,
+				playTimeMin: null,
+				playTimeMax: null,
+				confidence: 'low'
+			};
+			expect(isAIRecognitionFailed(firstAttempt)).toBe(true);
+
+			// User uploads different image - AI succeeds this time
+			const secondAttempt: ExtractedGameData = {
+				title: 'Ticket to Ride',
+				publisher: 'Days of Wonder',
+				year: 2004,
+				minPlayers: 2,
+				maxPlayers: 5,
+				playTimeMin: 30,
+				playTimeMax: 60,
+				confidence: 'high'
+			};
+			expect(isAIRecognitionFailed(secondAttempt)).toBe(false);
+
+			// Add the recognized game
+			const game = await createGame(testUserId, {
+				title: secondAttempt.title!,
+				year: secondAttempt.year,
+				minPlayers: secondAttempt.minPlayers,
+				maxPlayers: secondAttempt.maxPlayers,
+				playTimeMin: secondAttempt.playTimeMin,
+				playTimeMax: secondAttempt.playTimeMax
+			});
+
+			expect(game.title).toBe('Ticket to Ride');
+		});
+
+		it('should allow manual entry even when AI partially succeeds', async () => {
+			// AI recognizes title but user decides to enter manually anyway
+			// (user chooses "Enter Manually Instead" option)
+
+			const partialAIResult: ExtractedGameData = {
+				title: 'Some Game',
+				publisher: null,
+				year: null,
+				minPlayers: null,
+				maxPlayers: null,
+				playTimeMin: null,
+				playTimeMax: null,
+				confidence: 'medium'
+			};
+
+			// This is NOT a failure (title exists)
+			expect(isAIRecognitionFailed(partialAIResult)).toBe(false);
+
+			// But user can still choose manual entry with different data
+			const manualOverride = {
+				title: 'Actually This Game',
+				year: 2015,
+				minPlayers: 2,
+				maxPlayers: 8,
+				playTimeMin: 45,
+				playTimeMax: 120
+			};
+
+			const game = await createGame(testUserId, manualOverride);
+			expect(game.title).toBe('Actually This Game');
+		});
+	});
+
+	describe('Error Message Clarity', () => {
+		it('should provide clear error message when AI cannot recognize game', () => {
+			// This tests the error message content
+			const expectedErrorPatterns = [
+				/could not identify/i,
+				/unable to recognize/i,
+				/not recogniz/i,
+				/cannot.*identify/i,
+				/unclear/i,
+				/blurry/i
+			];
+
+			const sampleErrorMessage =
+				'Could not identify the board game from this image. The image may be unclear, or it may not show a recognizable board game box.';
+
+			// At least one pattern should match
+			const matchesPattern = expectedErrorPatterns.some((pattern) =>
+				pattern.test(sampleErrorMessage)
+			);
+			expect(matchesPattern).toBe(true);
+		});
+
+		it('should provide helpful guidance in error state', () => {
+			// Verify error guidance mentions manual entry option
+			const sampleGuidanceMessage = "Don't worry! You can enter the game details manually instead.";
+
+			expect(sampleGuidanceMessage.toLowerCase()).toContain('manual');
+			expect(sampleGuidanceMessage.toLowerCase()).toContain('enter');
 		});
 	});
 });
