@@ -483,7 +483,7 @@
 				"Verify AI still extracts visible info but knowledge fields may be null",
 				"Verify UI clearly shows which data is AI-enriched vs. from image"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 21,
