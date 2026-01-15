@@ -1,6 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { analyzeGameImage, type ExtractedGameData } from '$lib/server/gemini';
+import { analyzeGameImage, type ExtractedGameData, type MultiGameAnalysisResult } from '$lib/server/gemini';
 import { createGame } from '$lib/server/games';
 
 // Allowed MIME types for image uploads
@@ -121,13 +121,16 @@ export const actions: Actions = {
 			});
 		}
 
-		// Analyze all images
+		// Analyze all images - each image can now contain multiple games
 		const results: Array<{
 			success: boolean;
-			gameData: ExtractedGameData | null;
+			games: ExtractedGameData[];
+			gameCount: number;
 			error: string | null;
 			fileName: string;
 		}> = [];
+
+		let totalGamesFound = 0;
 
 		for (const image of images) {
 			// Extract base64 data from data URL
@@ -135,7 +138,8 @@ export const actions: Actions = {
 			if (!base64Match) {
 				results.push({
 					success: false,
-					gameData: null,
+					games: [],
+					gameCount: 0,
 					error: 'Invalid image data format',
 					fileName: image.fileName
 				});
@@ -144,32 +148,38 @@ export const actions: Actions = {
 
 			const base64Data = base64Match[2];
 
-			// Call Gemini AI for analysis
+			// Call Gemini AI for analysis - now returns multiple games
 			const result = await analyzeGameImage(base64Data, image.mimeType);
 
 			if (!result.success) {
 				results.push({
 					success: false,
-					gameData: null,
+					games: [],
+					gameCount: 0,
 					error: result.error || 'Failed to analyze the image',
 					fileName: image.fileName
 				});
 			} else {
+				// Filter out games without titles (failed detections)
+				const validGames = result.games.filter(g => g.title && g.title.trim() !== '');
+				totalGamesFound += validGames.length;
 				results.push({
 					success: true,
-					gameData: result.data,
+					games: validGames,
+					gameCount: validGames.length,
 					error: null,
 					fileName: image.fileName
 				});
 			}
 		}
 
-		// Return all results
+		// Return all results with multi-game support
 		return {
 			batchAnalyzed: true,
 			results,
 			totalCount: images.length,
-			successCount: results.filter((r) => r.success && r.gameData?.title).length
+			totalGamesFound,
+			successCount: results.filter((r) => r.success && r.gameCount > 0).length
 		};
 	},
 

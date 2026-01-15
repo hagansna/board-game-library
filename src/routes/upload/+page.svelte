@@ -21,12 +21,13 @@
 	// State for uploaded images data (from server)
 	let uploadedImages = $state<Array<{ imageData: string; mimeType: string; fileName: string }>>([]);
 
-	// State for AI analysis results (one per image)
+	// State for AI analysis results (multiple games per image now)
 	let analysisResults = $state<
 		Map<
 			number,
 			{
-				result: ExtractedGameData | null;
+				games: ExtractedGameData[];
+				gameCount: number;
 				error: string | null;
 				status: 'pending' | 'analyzing' | 'done' | 'error';
 			}
@@ -281,26 +282,41 @@
 		return `${file.name}-${file.size}`;
 	}
 
-	// Count successful analysis results
-	function getSuccessfulResultsCount(): number {
+	// Count total games found across all images
+	function getTotalGamesCount(): number {
 		let count = 0;
 		for (const result of analysisResults.values()) {
-			if (result.status === 'done' && result.result && !isAIRecognitionFailed(result.result)) {
-				count++;
+			if (result.status === 'done' && result.games) {
+				count += result.games.filter(g => !isAIRecognitionFailed(g)).length;
 			}
 		}
 		return count;
 	}
 
-	// Get all successful results as array
-	function getSuccessfulResults(): Array<{ index: number; data: ExtractedGameData }> {
-		const results: Array<{ index: number; data: ExtractedGameData }> = [];
-		for (const [index, result] of analysisResults.entries()) {
-			if (result.status === 'done' && result.result && !isAIRecognitionFailed(result.result)) {
-				results.push({ index, data: result.result });
+	// Get all games as a flat array with their source image index
+	function getAllGames(): Array<{ imageIndex: number; gameIndex: number; data: ExtractedGameData }> {
+		const allGames: Array<{ imageIndex: number; gameIndex: number; data: ExtractedGameData }> = [];
+		for (const [imageIndex, result] of analysisResults.entries()) {
+			if (result.status === 'done' && result.games) {
+				result.games.forEach((game, gameIndex) => {
+					if (!isAIRecognitionFailed(game)) {
+						allGames.push({ imageIndex, gameIndex, data: game });
+					}
+				});
 			}
 		}
-		return results;
+		return allGames;
+	}
+
+	// Get images count that had games detected
+	function getImagesWithGamesCount(): number {
+		let count = 0;
+		for (const result of analysisResults.values()) {
+			if (result.status === 'done' && result.gameCount > 0) {
+				count++;
+			}
+		}
+		return count;
 	}
 
 	// Check if any analysis is in progress
@@ -338,35 +354,45 @@
 				const newResults = new Map<
 					number,
 					{
-						result: ExtractedGameData | null;
+						games: ExtractedGameData[];
+						gameCount: number;
 						error: string | null;
 						status: 'pending' | 'analyzing' | 'done' | 'error';
 					}
 				>();
 				for (let i = 0; i < form.images.length; i++) {
-					newResults.set(i, { result: null, error: null, status: 'pending' });
+					newResults.set(i, { games: [], gameCount: 0, error: null, status: 'pending' });
 				}
 				analysisResults = newResults;
 			}
 
-			// Handle batch analysis results
+			// Handle batch analysis results (now with multi-game support)
 			if (form.batchAnalyzed && form.results && Array.isArray(form.results)) {
 				const newResults = new Map(analysisResults);
 				for (let i = 0; i < form.results.length; i++) {
 					const result = form.results[i];
-					if (result.success && result.gameData) {
-						if (isAIRecognitionFailed(result.gameData)) {
+					if (result.success && result.games && result.games.length > 0) {
+						// Filter out games without valid titles
+						const validGames = result.games.filter((g: ExtractedGameData) => !isAIRecognitionFailed(g));
+						if (validGames.length > 0) {
 							newResults.set(i, {
-								result: null,
-								error: 'Could not identify game in this image',
-								status: 'error'
+								games: validGames,
+								gameCount: validGames.length,
+								error: null,
+								status: 'done'
 							});
 						} else {
-							newResults.set(i, { result: result.gameData, error: null, status: 'done' });
+							newResults.set(i, {
+								games: [],
+								gameCount: 0,
+								error: 'Could not identify any games in this image',
+								status: 'error'
+							});
 						}
 					} else {
 						newResults.set(i, {
-							result: null,
+							games: [],
+							gameCount: 0,
 							error: result.error || 'Analysis failed',
 							status: 'error'
 						});
@@ -388,17 +414,26 @@
 		}
 	});
 
-	// Track which games are selected for adding to library
-	let selectedGames = $state<Set<number>>(new Set());
+	// Track which games are selected for adding to library (key: "imageIndex-gameIndex")
+	let selectedGames = $state<Set<string>>(new Set());
+
+	// Generate unique key for a game
+	function getGameKey(imageIndex: number, gameIndex: number): string {
+		return `${imageIndex}-${gameIndex}`;
+	}
 
 	// Initialize selectedGames when results change
 	$effect(() => {
 		if (showBatchReview && analysisResults.size > 0) {
 			// Auto-select all successful results
-			const newSelected = new Set<number>();
-			for (const [index, result] of analysisResults.entries()) {
-				if (result.status === 'done' && result.result && !isAIRecognitionFailed(result.result)) {
-					newSelected.add(index);
+			const newSelected = new Set<string>();
+			for (const [imageIndex, result] of analysisResults.entries()) {
+				if (result.status === 'done' && result.games) {
+					result.games.forEach((game, gameIndex) => {
+						if (!isAIRecognitionFailed(game)) {
+							newSelected.add(getGameKey(imageIndex, gameIndex));
+						}
+					});
 				}
 			}
 			selectedGames = newSelected;
@@ -406,22 +441,27 @@
 	});
 
 	// Toggle game selection
-	function toggleGameSelection(index: number) {
+	function toggleGameSelection(imageIndex: number, gameIndex: number) {
+		const key = getGameKey(imageIndex, gameIndex);
 		const newSelected = new Set(selectedGames);
-		if (newSelected.has(index)) {
-			newSelected.delete(index);
+		if (newSelected.has(key)) {
+			newSelected.delete(key);
 		} else {
-			newSelected.add(index);
+			newSelected.add(key);
 		}
 		selectedGames = newSelected;
 	}
 
 	// Select all games
 	function selectAllGames() {
-		const newSelected = new Set<number>();
-		for (const [index, result] of analysisResults.entries()) {
-			if (result.status === 'done' && result.result && !isAIRecognitionFailed(result.result)) {
-				newSelected.add(index);
+		const newSelected = new Set<string>();
+		for (const [imageIndex, result] of analysisResults.entries()) {
+			if (result.status === 'done' && result.games) {
+				result.games.forEach((game, gameIndex) => {
+					if (!isAIRecognitionFailed(game)) {
+						newSelected.add(getGameKey(imageIndex, gameIndex));
+					}
+				});
 			}
 		}
 		selectedGames = newSelected;
@@ -435,10 +475,13 @@
 	// Get selected games data for form submission
 	function getSelectedGamesData(): ExtractedGameData[] {
 		const games: ExtractedGameData[] = [];
-		for (const index of selectedGames) {
-			const result = analysisResults.get(index);
-			if (result?.result) {
-				games.push(result.result);
+		for (const key of selectedGames) {
+			const [imageIndexStr, gameIndexStr] = key.split('-');
+			const imageIndex = parseInt(imageIndexStr, 10);
+			const gameIndex = parseInt(gameIndexStr, 10);
+			const result = analysisResults.get(imageIndex);
+			if (result?.games && result.games[gameIndex]) {
+				games.push(result.games[gameIndex]);
 			}
 		}
 		return games;
@@ -769,11 +812,11 @@
 								<div class="grid grid-cols-4 gap-2 sm:grid-cols-6">
 									{#each uploadedImages as image, index}
 										{@const result = analysisResults.get(index)}
+										{@const hasGames = result?.status === 'done' && result.gameCount > 0}
 										<div
-											class="relative aspect-square overflow-hidden rounded border-2 {result?.status ===
-											'done'
+											class="relative aspect-square overflow-hidden rounded border-2 {hasGames
 												? 'border-green-500'
-												: result?.status === 'error'
+												: result?.status === 'error' || (result?.status === 'done' && result.gameCount === 0)
 													? 'border-red-500'
 													: 'border-primary animate-pulse'}"
 										>
@@ -782,24 +825,15 @@
 												alt="Analyzing {image.fileName}"
 												class="h-full w-full object-cover"
 											/>
-											{#if result?.status === 'done'}
+											{#if hasGames}
 												<div
 													class="absolute inset-0 flex items-center justify-center bg-green-500/30"
 												>
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														width="20"
-														height="20"
-														viewBox="0 0 24 24"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="3"
-														class="text-green-600"
-													>
-														<polyline points="20 6 9 17 4 12" />
-													</svg>
+													<span class="rounded-full bg-green-600 px-2 py-0.5 text-sm font-bold text-white">
+														{result.gameCount}
+													</span>
 												</div>
-											{:else if result?.status === 'error'}
+											{:else if result?.status === 'error' || (result?.status === 'done' && result?.gameCount === 0)}
 												<div class="absolute inset-0 flex items-center justify-center bg-red-500/30">
 													<svg
 														xmlns="http://www.w3.org/2000/svg"
@@ -869,30 +903,31 @@
 
 		<!-- Batch Results Review Section -->
 		{#if showBatchReview && analysisResults.size > 0}
-			{@const successCount = getSuccessfulResultsCount()}
-			{@const totalCount = analysisResults.size}
+			{@const totalGames = getTotalGamesCount()}
+			{@const imagesWithGames = getImagesWithGamesCount()}
+			{@const totalImages = analysisResults.size}
 			<Card.Root>
 				<Card.Header>
 					<div class="flex items-center justify-between">
 						<Card.Title>Analysis Results</Card.Title>
 						<span class="rounded-full bg-primary/15 px-3 py-1 text-sm font-medium text-primary">
-							Found {successCount} of {totalCount} game{totalCount > 1 ? 's' : ''}
+							Found {totalGames} game{totalGames !== 1 ? 's' : ''} in {imagesWithGames} of {totalImages} image{totalImages !== 1 ? 's' : ''}
 						</span>
 					</div>
 					<Card.Description>
-						{#if successCount > 0}
-							Select the games you want to add to your library. You can edit details before adding.
+						{#if totalGames > 0}
+							Select the games you want to add to your library.
 						{:else}
 							No games were successfully identified. You can enter details manually.
 						{/if}
 					</Card.Description>
 				</Card.Header>
 				<Card.Content>
-					{#if successCount > 0}
+					{#if totalGames > 0}
 						<!-- Select All / Deselect All buttons -->
 						<div class="mb-4 flex items-center justify-between">
 							<span class="text-sm text-muted-foreground">
-								{selectedGames.size} of {successCount} selected
+								{selectedGames.size} of {totalGames} selected
 							</span>
 							<div class="flex gap-2">
 								<Button
@@ -900,7 +935,7 @@
 									variant="outline"
 									size="sm"
 									onclick={selectAllGames}
-									disabled={selectedGames.size === successCount}
+									disabled={selectedGames.size === totalGames}
 								>
 									Select All
 								</Button>
@@ -916,89 +951,84 @@
 							</div>
 						</div>
 
-						<!-- Results list with checkboxes -->
-						<div class="space-y-3">
-							{#each [...analysisResults.entries()] as [index, result]}
-								{@const isSuccess =
-									result.status === 'done' &&
-									result.result &&
-									!isAIRecognitionFailed(result.result)}
-								{@const uploadedImage = uploadedImages[index]}
-								<div
-									class="flex items-start gap-3 rounded-lg border p-3 {isSuccess
-										? 'bg-card'
-										: 'bg-muted/50'}"
-								>
-									<!-- Checkbox (only for successful results) -->
-									<div class="flex h-16 w-16 shrink-0 items-center gap-2">
-										{#if isSuccess}
-											<input
-												type="checkbox"
-												checked={selectedGames.has(index)}
-												onchange={() => toggleGameSelection(index)}
-												class="h-4 w-4 rounded border-input"
-											/>
-										{/if}
+						<!-- Results list grouped by image -->
+						<div class="space-y-4">
+							{#each [...analysisResults.entries()] as [imageIndex, result]}
+								{@const uploadedImage = uploadedImages[imageIndex]}
+								{@const hasGames = result.status === 'done' && result.gameCount > 0}
+
+								<!-- Image group header -->
+								<div class="rounded-lg border {hasGames ? 'bg-card' : 'bg-muted/50'}">
+									<div class="flex items-center gap-3 border-b p-3">
 										{#if uploadedImage}
 											<img
 												src={uploadedImage.imageData}
 												alt={uploadedImage.fileName}
-												class="h-full w-full rounded object-cover"
+												class="h-12 w-12 shrink-0 rounded object-cover"
 											/>
 										{/if}
+										<div class="min-w-0 flex-1">
+											<p class="truncate text-sm font-medium text-foreground" title={uploadedImage?.fileName}>
+												{uploadedImage?.fileName ?? `Image ${imageIndex + 1}`}
+											</p>
+											{#if hasGames}
+												<p class="text-sm text-muted-foreground">
+													{result.gameCount} game{result.gameCount !== 1 ? 's' : ''} detected
+												</p>
+											{:else}
+												<p class="text-sm text-destructive">
+													{result.error || 'No games detected'}
+												</p>
+											{/if}
+										</div>
 									</div>
 
-									<!-- Result details -->
-									<div class="min-w-0 flex-1">
-										{#if isSuccess && result.result}
-											<div class="flex items-start justify-between gap-2">
-												<div class="min-w-0 flex-1">
-													<p class="truncate font-medium text-foreground">
-														{result.result.title}
-													</p>
-													<p class="text-sm text-muted-foreground">
-														{#if result.result.year}
-															{result.result.year}
-														{/if}
-														{#if result.result.minPlayers || result.result.maxPlayers}
-															<span class="mx-1">|</span>
-															{result.result.minPlayers ?? '?'}-{result.result.maxPlayers ??
-																'?'} players
-														{/if}
-														{#if result.result.playTimeMin || result.result.playTimeMax}
-															<span class="mx-1">|</span>
-															{result.result.playTimeMin ?? '?'}-{result.result.playTimeMax ??
-																'?'} min
-														{/if}
-													</p>
+									<!-- Games from this image -->
+									{#if hasGames && result.games}
+										<div class="divide-y">
+											{#each result.games as game, gameIndex}
+												{@const gameKey = getGameKey(imageIndex, gameIndex)}
+												{@const isSelected = selectedGames.has(gameKey)}
+												<div
+													class="flex items-start gap-3 p-3 {isSelected ? 'bg-primary/5' : ''}"
+												>
+													<input
+														type="checkbox"
+														checked={isSelected}
+														onchange={() => toggleGameSelection(imageIndex, gameIndex)}
+														class="mt-1 h-4 w-4 rounded border-input"
+													/>
+													<div class="min-w-0 flex-1">
+														<div class="flex items-start justify-between gap-2">
+															<div class="min-w-0 flex-1">
+																<p class="truncate font-medium text-foreground">
+																	{game.title}
+																</p>
+																<p class="text-sm text-muted-foreground">
+																	{#if game.year}
+																		{game.year}
+																	{/if}
+																	{#if game.minPlayers || game.maxPlayers}
+																		<span class="mx-1">|</span>
+																		{game.minPlayers ?? '?'}-{game.maxPlayers ?? '?'} players
+																	{/if}
+																	{#if game.playTimeMin || game.playTimeMax}
+																		<span class="mx-1">|</span>
+																		{game.playTimeMin ?? '?'}-{game.playTimeMax ?? '?'} min
+																	{/if}
+																</p>
+															</div>
+															<span
+																class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {getConfidenceBadgeClass(game.confidence)}"
+															>
+																{game.confidence}
+															</span>
+														</div>
+													</div>
 												</div>
-												<span
-													class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {getConfidenceBadgeClass(
-														result.result.confidence
-													)}"
-												>
-													{result.result.confidence}
-												</span>
-											</div>
-										{:else}
-											<div class="flex items-center gap-2 text-sm text-destructive">
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													width="16"
-													height="16"
-													viewBox="0 0 24 24"
-													fill="none"
-													stroke="currentColor"
-													stroke-width="2"
-												>
-													<circle cx="12" cy="12" r="10" />
-													<line x1="12" x2="12" y1="8" y2="12" />
-													<line x1="12" x2="12.01" y1="16" y2="16" />
-												</svg>
-												{result.error || 'Could not identify game'}
-											</div>
-										{/if}
-									</div>
+											{/each}
+										</div>
+									{/if}
 								</div>
 							{/each}
 						</div>
@@ -1064,7 +1094,7 @@
 											<path d="M12 5v14" />
 											<path d="M5 12h14" />
 										</svg>
-										Add {selectedGames.size} Game{selectedGames.size > 1 ? 's' : ''} to Library
+										Add {selectedGames.size} Game{selectedGames.size !== 1 ? 's' : ''} to Library
 									{/if}
 								</Button>
 							</div>
