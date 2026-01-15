@@ -2,11 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Model
+
+Use Opus unless otherwise specified
+
 ## Project Overview
 
 Board Game Library - A web application for managing a personal board game collection with AI-powered image recognition to automatically catalog games from photos.
 
 ### Core Features
+
 - User authentication and login
 - Board game library management (CRUD operations)
 - AI-powered image analysis to extract game information from uploaded photos

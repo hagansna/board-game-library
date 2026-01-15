@@ -1,333 +1,333 @@
 {
-  "project": "Board Game Library",
-  "version": "1.0.0-MVP",
-  "techStack": {
-    "framework": "SvelteKit",
-    "aiService": "Google Gemini Flash Preview",
-    "database": "TBD (SQLite/PostgreSQL)",
-    "uiComponents": "shadcn-svelte",
-    "design": "Dark mode support"
-  },
-  "stories": [
-    {
-      "id": 1,
-      "category": "authentication",
-      "description": "User can create an account with email and password",
-      "acceptanceCriteria": [
-        "Email validation prevents invalid formats",
-        "Password must meet minimum security requirements (8+ characters)",
-        "Duplicate email addresses are rejected with clear error message",
-        "Successful registration creates user record in database",
-        "User is automatically logged in after registration OR redirected to login"
-      ],
-      "steps": [
-        "Navigate to /auth/register page",
-        "Enter valid email address (e.g., user@example.com)",
-        "Enter password meeting requirements (8+ characters)",
-        "Click 'Register' or 'Sign Up' button",
-        "Verify account is created in database (check users table)",
-        "Verify user is redirected to library page or login page",
-        "Attempt duplicate registration - verify error message displays"
-      ],
-      "passes": false
-    },
-    {
-      "id": 2,
-      "category": "authentication",
-      "description": "User can log in to access their library",
-      "acceptanceCriteria": [
-        "Valid credentials grant access to library",
-        "Invalid credentials show clear error message",
-        "Session is created upon successful login",
-        "User is redirected to library page after login",
-        "Login state persists (see story #4)"
-      ],
-      "steps": [
-        "Navigate to /auth/login page",
-        "Enter registered email and password",
-        "Click 'Login' or 'Sign In' button",
-        "Verify session cookie or token is created",
-        "Verify redirect to /games or / (library page)",
-        "Attempt login with invalid credentials - verify error message",
-        "Verify protected routes are now accessible"
-      ],
-      "passes": false
-    },
-    {
-      "id": 3,
-      "category": "authentication",
-      "description": "User can log out of their account",
-      "acceptanceCriteria": [
-        "Logout button is accessible from all authenticated pages",
-        "Session is completely destroyed on logout",
-        "User is redirected to public page (login or home)",
-        "Protected routes become inaccessible after logout"
-      ],
-      "steps": [
-        "Log in to account",
-        "Locate and click 'Logout' button in navigation/header",
-        "Verify session cookie or token is cleared",
-        "Verify redirect to /auth/login or public home page",
-        "Attempt to access /games or other protected route",
-        "Verify redirect to login page (protected route inaccessible)"
-      ],
-      "passes": false
-    },
-    {
-      "id": 4,
-      "category": "authentication",
-      "description": "User stays logged in across page refreshes and browser sessions",
-      "acceptanceCriteria": [
-        "Session persists through page refresh",
-        "Session persists through browser close/reopen (for reasonable duration)",
-        "User does not need to re-login on every visit",
-        "Session expires after defined period (e.g., 7 days, 30 days)"
-      ],
-      "steps": [
-        "Log in successfully",
-        "Navigate to library page",
-        "Refresh the page (F5 or browser refresh)",
-        "Verify user remains authenticated (library still accessible)",
-        "Close browser completely",
-        "Reopen browser and navigate to application",
-        "Verify user is still logged in (no re-login required)",
-        "Verify session eventually expires after defined duration"
-      ],
-      "passes": false
-    },
-    {
-      "id": 5,
-      "category": "library-management",
-      "description": "User can view all board games in their library",
-      "acceptanceCriteria": [
-        "Library page displays all games belonging to logged-in user",
-        "Each game shows key information (title, year, players, play time)",
-        "Empty state displays helpful message when no games exist",
-        "Games are sorted in consistent order (e.g., alphabetical, date added)",
-        "Only the logged-in user's games are visible (data isolation)"
-      ],
-      "steps": [
-        "Log in to account with existing games",
-        "Navigate to library page (/games or /)",
-        "Verify all user's games are displayed as cards or list items",
-        "Check each game shows: title, year, player count, play time",
-        "Log out and log in as different user",
-        "Verify only that user's games are displayed",
-        "Log in as new user with no games",
-        "Verify empty state message displays (e.g., 'No games yet. Add your first game!')"
-      ],
-      "passes": false
-    },
-    {
-      "id": 6,
-      "category": "library-management",
-      "description": "User can manually add a board game with complete details",
-      "acceptanceCriteria": [
-        "Form includes fields for: title (required), year, player count, play time",
-        "Title is required; other fields optional",
-        "Form validation prevents submission without required fields",
-        "Successfully added game appears immediately in library",
-        "Game is persisted in database with correct user association"
-      ],
-      "steps": [
-        "Navigate to library page",
-        "Click 'Add Game' or '+ New Game' button",
-        "Verify form displays with fields: title, year, player count, play time",
-        "Enter game details (e.g., 'Catan', 1995, '3-4', '60-90 min')",
-        "Submit the form",
-        "Verify redirect to library page",
-        "Verify new game appears in library with entered details",
-        "Refresh page - verify game persists",
-        "Check database - verify game record with correct user_id"
-      ],
-      "passes": false
-    },
-    {
-      "id": 7,
-      "category": "library-management",
-      "description": "User can edit details of games in their library",
-      "acceptanceCriteria": [
-        "Edit button/action available on each game card",
-        "Edit form pre-populates with existing game data",
-        "User can modify any field (title, year, players, play time)",
-        "Changes are saved to database",
-        "Updated information displays immediately in library"
-      ],
-      "steps": [
-        "Navigate to library page with existing games",
-        "Click 'Edit' button on a specific game card",
-        "Verify form displays with current game data pre-filled",
-        "Modify one or more fields (e.g., change year from 1995 to 1996)",
-        "Click 'Save' or 'Update' button",
-        "Verify redirect to library page",
-        "Verify updated information displays in library",
-        "Refresh page - verify changes persist",
-        "Check database - verify updated fields"
-      ],
-      "passes": false
-    },
-    {
-      "id": 8,
-      "category": "library-management",
-      "description": "User can remove games from their library",
-      "acceptanceCriteria": [
-        "Delete button/action available on each game card",
-        "Optional: Confirmation prompt prevents accidental deletion",
-        "Game is removed from library view immediately",
-        "Game is deleted from database (or soft-deleted)",
-        "Deletion only affects the specific game selected"
-      ],
-      "steps": [
-        "Navigate to library page with multiple games",
-        "Click 'Delete' or trash icon on a specific game card",
-        "If confirmation prompt exists, confirm deletion",
-        "Verify game disappears from library view immediately",
-        "Verify other games remain unaffected",
-        "Refresh page - verify deleted game does not reappear",
-        "Check database - verify game record is removed or marked deleted"
-      ],
-      "passes": false
-    },
-    {
-      "id": 9,
-      "category": "ai-recognition",
-      "description": "User can upload a photo of a board game box for AI analysis",
-      "acceptanceCriteria": [
-        "Upload interface supports click-to-upload and drag-and-drop",
-        "Accepts common image formats (JPG, PNG, HEIC)",
-        "File size limit enforced (e.g., 10MB max)",
-        "Image preview displays after selection",
-        "Clear indication that image is ready for analysis"
-      ],
-      "steps": [
-        "Navigate to upload page (/upload or upload modal)",
-        "Click 'Upload Image' button or drag-drop area",
-        "Select an image file of board game box from file system",
-        "Verify image preview displays with filename",
-        "Verify upload button state changes to ready/enabled",
-        "Test with invalid file type (e.g., .txt) - verify error message",
-        "Test with oversized file - verify size limit error"
-      ],
-      "passes": false
-    },
-    {
-      "id": 10,
-      "category": "ai-recognition",
-      "description": "System uses Gemini AI to extract game information from uploaded image",
-      "acceptanceCriteria": [
-        "Image is sent to Gemini Flash Preview API for analysis",
-        "AI extracts: title, publisher, year published, player count, play time",
-        "Loading state displays during AI processing",
-        "Extracted data is structured and parseable",
-        "API errors are handled gracefully"
-      ],
-      "steps": [
-        "Upload a clear board game box image (e.g., Catan, Ticket to Ride)",
-        "Click 'Analyze' or trigger automatic analysis",
-        "Verify loading spinner or progress indicator displays",
-        "Monitor network tab - verify API call to Gemini with image",
-        "Verify response contains structured data: title, publisher, year, players, play time",
-        "Check console - no API errors logged",
-        "Test with obscure game - verify AI still attempts extraction",
-        "Test with non-game image - verify graceful handling"
-      ],
-      "passes": false
-    },
-    {
-      "id": 11,
-      "category": "ai-recognition",
-      "description": "User can review and confirm AI-extracted information before adding to library",
-      "acceptanceCriteria": [
-        "Extracted information displays in editable form",
-        "User can modify any AI-extracted field before saving",
-        "Clear 'Add to Library' or 'Confirm' action button",
-        "Game is added to library only after user confirmation",
-        "User can cancel and return to upload without adding"
-      ],
-      "steps": [
-        "Complete AI analysis of board game image",
-        "Verify extracted data displays in review form",
-        "Verify all fields are editable (title, publisher, year, players, play time)",
-        "Make a correction to one field (e.g., fix misspelled title)",
-        "Click 'Add to Library' button",
-        "Verify redirect to library page",
-        "Verify game appears in library with corrected information",
-        "Test cancel action - verify game is not added to library"
-      ],
-      "passes": false
-    },
-    {
-      "id": 12,
-      "category": "ai-recognition",
-      "description": "User can manually enter game details if AI recognition fails or has low confidence",
-      "acceptanceCriteria": [
-        "System detects AI failure or low confidence results",
-        "Clear message explains why auto-recognition failed",
-        "'Enter Manually' option is prominent and accessible",
-        "Manual entry form matches standard add game form",
-        "Uploaded image can optionally be retained or discarded"
-      ],
-      "steps": [
-        "Upload an image that AI cannot recognize (blurry, partial, non-game)",
-        "Trigger AI analysis",
-        "Verify error or low-confidence message displays",
-        "Locate and click 'Enter Manually' or 'Add Manually' button",
-        "Verify manual entry form displays",
-        "Fill in game details manually",
-        "Submit form",
-        "Verify game is added to library successfully",
-        "Verify uploaded image handling (saved, discarded, or optional)"
-      ],
-      "passes": false
-    },
-    {
-      "id": 13,
-      "category": "ux-design",
-      "description": "Application uses shadcn-svelte components for consistent UI/UX",
-      "acceptanceCriteria": [
-        "shadcn-svelte is properly installed and configured",
-        "All UI components use shadcn components (buttons, forms, cards, dialogs)",
-        "Components follow shadcn styling conventions",
-        "Consistent design system across all pages",
-        "Components are accessible (keyboard navigation, ARIA labels)"
-      ],
-      "steps": [
-        "Install shadcn-svelte via CLI (npx shadcn-svelte@latest init)",
-        "Verify components.json config file is created",
-        "Add required components (button, card, input, form, dialog, etc.)",
-        "Verify src/lib/components/ui/ directory contains shadcn components",
-        "Review all pages - verify buttons use shadcn Button component",
-        "Review forms - verify inputs use shadcn Input/Form components",
-        "Review game cards - verify Card component usage",
-        "Test keyboard navigation on all interactive elements",
-        "Run accessibility audit (axe or similar tool)"
-      ],
-      "passes": false
-    },
-    {
-      "id": 14,
-      "category": "ux-design",
-      "description": "Users can toggle between light and dark mode with preference persistence",
-      "acceptanceCriteria": [
-        "Dark mode toggle is accessible from all pages",
-        "Theme preference persists across sessions (localStorage)",
-        "System respects user's OS theme preference on first visit",
-        "All components properly support both light and dark themes",
-        "No FOUC (Flash of Unstyled Content) on page load"
-      ],
-      "steps": [
-        "Locate dark mode toggle button in header/navigation",
-        "Verify current theme is visually indicated on toggle",
-        "Click toggle - verify smooth transition to dark mode",
-        "Verify all pages update (auth, library, upload, forms)",
-        "Check all colors have sufficient contrast in both modes",
-        "Refresh page - verify dark mode persists",
-        "Clear localStorage - verify app respects OS preference (prefers-color-scheme)",
-        "Toggle back to light mode - verify persistence",
-        "Close and reopen browser - verify theme preference retained",
-        "Test with OS in dark mode - verify app defaults to dark on first visit"
-      ],
-      "passes": false
-    }
-  ]
+	"project": "Board Game Library",
+	"version": "1.0.0-MVP",
+	"techStack": {
+		"framework": "SvelteKit",
+		"aiService": "Google Gemini Flash Preview",
+		"database": "TBD (SQLite/PostgreSQL)",
+		"uiComponents": "shadcn-svelte",
+		"design": "Dark mode support"
+	},
+	"stories": [
+		{
+			"id": 1,
+			"category": "authentication",
+			"description": "User can create an account with email and password",
+			"acceptanceCriteria": [
+				"Email validation prevents invalid formats",
+				"Password must meet minimum security requirements (8+ characters)",
+				"Duplicate email addresses are rejected with clear error message",
+				"Successful registration creates user record in database",
+				"User is automatically logged in after registration OR redirected to login"
+			],
+			"steps": [
+				"Navigate to /auth/register page",
+				"Enter valid email address (e.g., user@example.com)",
+				"Enter password meeting requirements (8+ characters)",
+				"Click 'Register' or 'Sign Up' button",
+				"Verify account is created in database (check users table)",
+				"Verify user is redirected to library page or login page",
+				"Attempt duplicate registration - verify error message displays"
+			],
+			"passes": false
+		},
+		{
+			"id": 2,
+			"category": "authentication",
+			"description": "User can log in to access their library",
+			"acceptanceCriteria": [
+				"Valid credentials grant access to library",
+				"Invalid credentials show clear error message",
+				"Session is created upon successful login",
+				"User is redirected to library page after login",
+				"Login state persists (see story #4)"
+			],
+			"steps": [
+				"Navigate to /auth/login page",
+				"Enter registered email and password",
+				"Click 'Login' or 'Sign In' button",
+				"Verify session cookie or token is created",
+				"Verify redirect to /games or / (library page)",
+				"Attempt login with invalid credentials - verify error message",
+				"Verify protected routes are now accessible"
+			],
+			"passes": false
+		},
+		{
+			"id": 3,
+			"category": "authentication",
+			"description": "User can log out of their account",
+			"acceptanceCriteria": [
+				"Logout button is accessible from all authenticated pages",
+				"Session is completely destroyed on logout",
+				"User is redirected to public page (login or home)",
+				"Protected routes become inaccessible after logout"
+			],
+			"steps": [
+				"Log in to account",
+				"Locate and click 'Logout' button in navigation/header",
+				"Verify session cookie or token is cleared",
+				"Verify redirect to /auth/login or public home page",
+				"Attempt to access /games or other protected route",
+				"Verify redirect to login page (protected route inaccessible)"
+			],
+			"passes": false
+		},
+		{
+			"id": 4,
+			"category": "authentication",
+			"description": "User stays logged in across page refreshes and browser sessions",
+			"acceptanceCriteria": [
+				"Session persists through page refresh",
+				"Session persists through browser close/reopen (for reasonable duration)",
+				"User does not need to re-login on every visit",
+				"Session expires after defined period (e.g., 7 days, 30 days)"
+			],
+			"steps": [
+				"Log in successfully",
+				"Navigate to library page",
+				"Refresh the page (F5 or browser refresh)",
+				"Verify user remains authenticated (library still accessible)",
+				"Close browser completely",
+				"Reopen browser and navigate to application",
+				"Verify user is still logged in (no re-login required)",
+				"Verify session eventually expires after defined duration"
+			],
+			"passes": false
+		},
+		{
+			"id": 5,
+			"category": "library-management",
+			"description": "User can view all board games in their library",
+			"acceptanceCriteria": [
+				"Library page displays all games belonging to logged-in user",
+				"Each game shows key information (title, year, players, play time)",
+				"Empty state displays helpful message when no games exist",
+				"Games are sorted in consistent order (e.g., alphabetical, date added)",
+				"Only the logged-in user's games are visible (data isolation)"
+			],
+			"steps": [
+				"Log in to account with existing games",
+				"Navigate to library page (/games or /)",
+				"Verify all user's games are displayed as cards or list items",
+				"Check each game shows: title, year, player count, play time",
+				"Log out and log in as different user",
+				"Verify only that user's games are displayed",
+				"Log in as new user with no games",
+				"Verify empty state message displays (e.g., 'No games yet. Add your first game!')"
+			],
+			"passes": false
+		},
+		{
+			"id": 6,
+			"category": "library-management",
+			"description": "User can manually add a board game with complete details",
+			"acceptanceCriteria": [
+				"Form includes fields for: title (required), year, player count, play time",
+				"Title is required; other fields optional",
+				"Form validation prevents submission without required fields",
+				"Successfully added game appears immediately in library",
+				"Game is persisted in database with correct user association"
+			],
+			"steps": [
+				"Navigate to library page",
+				"Click 'Add Game' or '+ New Game' button",
+				"Verify form displays with fields: title, year, player count, play time",
+				"Enter game details (e.g., 'Catan', 1995, '3-4', '60-90 min')",
+				"Submit the form",
+				"Verify redirect to library page",
+				"Verify new game appears in library with entered details",
+				"Refresh page - verify game persists",
+				"Check database - verify game record with correct user_id"
+			],
+			"passes": false
+		},
+		{
+			"id": 7,
+			"category": "library-management",
+			"description": "User can edit details of games in their library",
+			"acceptanceCriteria": [
+				"Edit button/action available on each game card",
+				"Edit form pre-populates with existing game data",
+				"User can modify any field (title, year, players, play time)",
+				"Changes are saved to database",
+				"Updated information displays immediately in library"
+			],
+			"steps": [
+				"Navigate to library page with existing games",
+				"Click 'Edit' button on a specific game card",
+				"Verify form displays with current game data pre-filled",
+				"Modify one or more fields (e.g., change year from 1995 to 1996)",
+				"Click 'Save' or 'Update' button",
+				"Verify redirect to library page",
+				"Verify updated information displays in library",
+				"Refresh page - verify changes persist",
+				"Check database - verify updated fields"
+			],
+			"passes": false
+		},
+		{
+			"id": 8,
+			"category": "library-management",
+			"description": "User can remove games from their library",
+			"acceptanceCriteria": [
+				"Delete button/action available on each game card",
+				"Optional: Confirmation prompt prevents accidental deletion",
+				"Game is removed from library view immediately",
+				"Game is deleted from database (or soft-deleted)",
+				"Deletion only affects the specific game selected"
+			],
+			"steps": [
+				"Navigate to library page with multiple games",
+				"Click 'Delete' or trash icon on a specific game card",
+				"If confirmation prompt exists, confirm deletion",
+				"Verify game disappears from library view immediately",
+				"Verify other games remain unaffected",
+				"Refresh page - verify deleted game does not reappear",
+				"Check database - verify game record is removed or marked deleted"
+			],
+			"passes": false
+		},
+		{
+			"id": 9,
+			"category": "ai-recognition",
+			"description": "User can upload a photo of a board game box for AI analysis",
+			"acceptanceCriteria": [
+				"Upload interface supports click-to-upload and drag-and-drop",
+				"Accepts common image formats (JPG, PNG, HEIC)",
+				"File size limit enforced (e.g., 10MB max)",
+				"Image preview displays after selection",
+				"Clear indication that image is ready for analysis"
+			],
+			"steps": [
+				"Navigate to upload page (/upload or upload modal)",
+				"Click 'Upload Image' button or drag-drop area",
+				"Select an image file of board game box from file system",
+				"Verify image preview displays with filename",
+				"Verify upload button state changes to ready/enabled",
+				"Test with invalid file type (e.g., .txt) - verify error message",
+				"Test with oversized file - verify size limit error"
+			],
+			"passes": false
+		},
+		{
+			"id": 10,
+			"category": "ai-recognition",
+			"description": "System uses Gemini AI to extract game information from uploaded image",
+			"acceptanceCriteria": [
+				"Image is sent to Gemini Flash Preview API for analysis",
+				"AI extracts: title, publisher, year published, player count, play time",
+				"Loading state displays during AI processing",
+				"Extracted data is structured and parseable",
+				"API errors are handled gracefully"
+			],
+			"steps": [
+				"Upload a clear board game box image (e.g., Catan, Ticket to Ride)",
+				"Click 'Analyze' or trigger automatic analysis",
+				"Verify loading spinner or progress indicator displays",
+				"Monitor network tab - verify API call to Gemini with image",
+				"Verify response contains structured data: title, publisher, year, players, play time",
+				"Check console - no API errors logged",
+				"Test with obscure game - verify AI still attempts extraction",
+				"Test with non-game image - verify graceful handling"
+			],
+			"passes": false
+		},
+		{
+			"id": 11,
+			"category": "ai-recognition",
+			"description": "User can review and confirm AI-extracted information before adding to library",
+			"acceptanceCriteria": [
+				"Extracted information displays in editable form",
+				"User can modify any AI-extracted field before saving",
+				"Clear 'Add to Library' or 'Confirm' action button",
+				"Game is added to library only after user confirmation",
+				"User can cancel and return to upload without adding"
+			],
+			"steps": [
+				"Complete AI analysis of board game image",
+				"Verify extracted data displays in review form",
+				"Verify all fields are editable (title, publisher, year, players, play time)",
+				"Make a correction to one field (e.g., fix misspelled title)",
+				"Click 'Add to Library' button",
+				"Verify redirect to library page",
+				"Verify game appears in library with corrected information",
+				"Test cancel action - verify game is not added to library"
+			],
+			"passes": false
+		},
+		{
+			"id": 12,
+			"category": "ai-recognition",
+			"description": "User can manually enter game details if AI recognition fails or has low confidence",
+			"acceptanceCriteria": [
+				"System detects AI failure or low confidence results",
+				"Clear message explains why auto-recognition failed",
+				"'Enter Manually' option is prominent and accessible",
+				"Manual entry form matches standard add game form",
+				"Uploaded image can optionally be retained or discarded"
+			],
+			"steps": [
+				"Upload an image that AI cannot recognize (blurry, partial, non-game)",
+				"Trigger AI analysis",
+				"Verify error or low-confidence message displays",
+				"Locate and click 'Enter Manually' or 'Add Manually' button",
+				"Verify manual entry form displays",
+				"Fill in game details manually",
+				"Submit form",
+				"Verify game is added to library successfully",
+				"Verify uploaded image handling (saved, discarded, or optional)"
+			],
+			"passes": false
+		},
+		{
+			"id": 13,
+			"category": "ux-design",
+			"description": "Application uses shadcn-svelte components for consistent UI/UX",
+			"acceptanceCriteria": [
+				"shadcn-svelte is properly installed and configured",
+				"All UI components use shadcn components (buttons, forms, cards, dialogs)",
+				"Components follow shadcn styling conventions",
+				"Consistent design system across all pages",
+				"Components are accessible (keyboard navigation, ARIA labels)"
+			],
+			"steps": [
+				"Install shadcn-svelte via CLI (npx shadcn-svelte@latest init)",
+				"Verify components.json config file is created",
+				"Add required components (button, card, input, form, dialog, etc.)",
+				"Verify src/lib/components/ui/ directory contains shadcn components",
+				"Review all pages - verify buttons use shadcn Button component",
+				"Review forms - verify inputs use shadcn Input/Form components",
+				"Review game cards - verify Card component usage",
+				"Test keyboard navigation on all interactive elements",
+				"Run accessibility audit (axe or similar tool)"
+			],
+			"passes": false
+		},
+		{
+			"id": 14,
+			"category": "ux-design",
+			"description": "Users can toggle between light and dark mode with preference persistence",
+			"acceptanceCriteria": [
+				"Dark mode toggle is accessible from all pages",
+				"Theme preference persists across sessions (localStorage)",
+				"System respects user's OS theme preference on first visit",
+				"All components properly support both light and dark themes",
+				"No FOUC (Flash of Unstyled Content) on page load"
+			],
+			"steps": [
+				"Locate dark mode toggle button in header/navigation",
+				"Verify current theme is visually indicated on toggle",
+				"Click toggle - verify smooth transition to dark mode",
+				"Verify all pages update (auth, library, upload, forms)",
+				"Check all colors have sufficient contrast in both modes",
+				"Refresh page - verify dark mode persists",
+				"Clear localStorage - verify app respects OS preference (prefers-color-scheme)",
+				"Toggle back to light mode - verify persistence",
+				"Close and reopen browser - verify theme preference retained",
+				"Test with OS in dark mode - verify app defaults to dark on first visit"
+			],
+			"passes": false
+		}
+	]
 }
