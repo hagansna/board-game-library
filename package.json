@@ -13,7 +13,8 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"backfill:age": "npx tsx scripts/backfill-suggested-age.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",
