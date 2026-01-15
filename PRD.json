@@ -381,6 +381,212 @@
 				"Check accessibility - verify alt text on images"
 			],
 			"passes": true
+		},
+		{
+			"id": 17,
+			"category": "ai-recognition",
+			"description": "User can select and upload multiple images at once for batch AI analysis",
+			"acceptanceCriteria": [
+				"File picker supports selecting multiple images at once",
+				"Thumbnails displayed for all selected images before processing",
+				"Progress indicator shows status for each image during analysis",
+				"Failed images don't block processing of other images",
+				"Results from all images aggregated for review",
+				"User can remove images from selection before processing",
+				"Clear summary shows total games found across all images"
+			],
+			"steps": [
+				"Navigate to upload page",
+				"Click upload button to open file picker",
+				"Select multiple image files (3-5 images) using Ctrl/Cmd+click or Shift+click",
+				"Verify all selected images appear as thumbnails in upload area",
+				"Remove one image from selection - verify it's removed without affecting others",
+				"Click 'Analyze All' or similar batch action button",
+				"Verify progress indicator shows processing status for each image",
+				"Verify results from all images are collected and displayed",
+				"Test with one corrupted/invalid file in batch - verify other files still process",
+				"Verify summary shows 'Found X games across Y images'"
+			],
+			"passes": false
+		},
+		{
+			"id": 18,
+			"category": "ai-recognition",
+			"description": "AI detects and extracts information for multiple board games from a single image",
+			"acceptanceCriteria": [
+				"AI identifies when an image contains multiple game boxes",
+				"Each detected game is returned as a separate entry with its own data",
+				"Count of games detected is shown to user (e.g., 'Found 3 games')",
+				"Low-confidence detections are flagged appropriately",
+				"Works with shelf photos, collection photos, and stacked boxes",
+				"Gracefully handles partially visible or obscured games"
+			],
+			"steps": [
+				"Upload image containing 2-3 visible board game boxes (e.g., shelf photo)",
+				"Trigger AI analysis",
+				"Verify AI response indicates multiple games detected",
+				"Verify count displayed (e.g., 'Found 3 games in this image')",
+				"Verify each detected game has separate extracted data",
+				"Test with image containing only 1 game - verify single game extracted normally",
+				"Test with crowded shelf image - verify AI handles partial/unclear games",
+				"Verify low-confidence games are marked as such"
+			],
+			"passes": false
+		},
+		{
+			"id": 19,
+			"category": "ai-recognition",
+			"description": "User can select which games to add when multiple games are detected from images",
+			"acceptanceCriteria": [
+				"Checkbox list displays all detected games from all processed images",
+				"Each game entry shows extracted info (title, year, players, play time)",
+				"User can select/deselect individual games via checkboxes",
+				"'Select All' and 'Deselect All' options available",
+				"'Add Selected' button adds only checked games to library",
+				"Each game can be edited individually before adding",
+				"Visual grouping shows which games came from the same image"
+			],
+			"steps": [
+				"Upload image(s) that result in multiple detected games",
+				"Verify checkbox list displays all detected games",
+				"Verify each game shows title, year, player count, play time",
+				"Select only 2 of 4 detected games using checkboxes",
+				"Click 'Add Selected' button",
+				"Verify only the 2 selected games are added to library",
+				"Verify unselected games are not added",
+				"Test 'Select All' - verify all checkboxes become checked",
+				"Test 'Deselect All' - verify all checkboxes become unchecked",
+				"Edit one game's title before adding - verify edit is preserved"
+			],
+			"passes": false
+		},
+		{
+			"id": 20,
+			"category": "ai-recognition",
+			"description": "AI uses board game knowledge to enrich extracted data beyond visible box information",
+			"acceptanceCriteria": [
+				"AI provides brief game description/summary based on its knowledge",
+				"AI includes game categories/tags (strategy, party, cooperative, family, etc.)",
+				"AI provides BoardGameGeek rating if the game is known",
+				"AI provides BoardGameGeek rank if the game is known",
+				"AI indicates which information came from image vs. knowledge base",
+				"Graceful handling when AI doesn't recognize the game (knowledge fields null)"
+			],
+			"steps": [
+				"Upload image of well-known game (e.g., Catan, Ticket to Ride)",
+				"Trigger AI analysis",
+				"Verify response includes description field with game summary",
+				"Verify response includes categories array (e.g., ['strategy', 'trading'])",
+				"Verify response includes bggRating (e.g., 7.2)",
+				"Verify response includes bggRank (e.g., 150)",
+				"Upload image of obscure/unknown game",
+				"Verify AI still extracts visible info but knowledge fields may be null",
+				"Verify UI clearly shows which data is AI-enriched vs. from image"
+			],
+			"passes": false
+		},
+		{
+			"id": 21,
+			"category": "library-management",
+			"description": "Game data model stores additional AI-provided fields for enriched game information",
+			"acceptanceCriteria": [
+				"Game model includes optional 'description' field (text)",
+				"Game model includes optional 'categories' field (JSON array of strings)",
+				"Game model includes optional 'bggRating' field (decimal/float)",
+				"Game model includes optional 'bggRank' field (integer)",
+				"Existing games are unaffected (new fields are nullable)",
+				"New fields are displayed on game cards and detail views",
+				"Manual game entry form allows editing these fields"
+			],
+			"steps": [
+				"Run database migration to add new fields",
+				"Verify existing games still load correctly",
+				"Add a new game via AI - verify all new fields are populated",
+				"View game in library - verify description displays",
+				"View game in library - verify categories display as tags",
+				"View game in library - verify BGG rating and rank display",
+				"Edit existing game - verify new fields can be modified",
+				"Add game manually - verify new fields are available in form"
+			],
+			"passes": false
+		},
+		{
+			"id": 22,
+			"category": "library-management",
+			"description": "User can search games in their library by title",
+			"acceptanceCriteria": [
+				"Search input field visible in library page header",
+				"Search filters games in real-time as user types",
+				"Search is case-insensitive",
+				"Partial matches are included in results",
+				"Clear button (X) resets search and shows all games",
+				"'No results found' message displays when search has no matches",
+				"Search works in combination with sort and filter"
+			],
+			"steps": [
+				"Navigate to library page with multiple games",
+				"Locate search input in header area",
+				"Type partial game name (e.g., 'cat' for 'Catan')",
+				"Verify matching games appear, non-matching games hidden",
+				"Verify search is case-insensitive ('CAT' matches 'Catan')",
+				"Click clear/X button - verify all games reappear",
+				"Search for non-existent game - verify 'No results' message",
+				"Apply a filter, then search - verify both work together"
+			],
+			"passes": false
+		},
+		{
+			"id": 23,
+			"category": "library-management",
+			"description": "User can sort their game library by various criteria",
+			"acceptanceCriteria": [
+				"Sort control (dropdown or buttons) visible in library header",
+				"Sort options include: Title A-Z, Title Z-A, Year (newest first), Year (oldest first), Recently added, Player count, Play time",
+				"Current sort option is visually indicated",
+				"Sort updates library view immediately",
+				"Sort preference persists during browser session",
+				"Sort works in combination with search and filter"
+			],
+			"steps": [
+				"Navigate to library page with multiple games",
+				"Locate sort dropdown/buttons in header",
+				"Select 'Title A-Z' - verify games sorted alphabetically",
+				"Select 'Title Z-A' - verify games sorted reverse alphabetically",
+				"Select 'Year (newest)' - verify newest games appear first",
+				"Select 'Recently added' - verify most recent additions first",
+				"Verify current sort option is visually highlighted",
+				"Navigate away and return - verify sort preference retained",
+				"Apply search filter - verify sort still applies to results"
+			],
+			"passes": false
+		},
+		{
+			"id": 24,
+			"category": "library-management",
+			"description": "User can filter games by player count, play time, and year ranges",
+			"acceptanceCriteria": [
+				"Filter controls visible in library (dropdowns, buttons, or filter panel)",
+				"Player count filter options: 1 player, 2 players, 3-4 players, 5+ players, any",
+				"Play time filter options: Under 30 min, 30-60 min, 1-2 hours, 2+ hours, any",
+				"Year filter allows selecting a range or specific decades",
+				"Multiple filters can be applied simultaneously",
+				"Active filters clearly indicated (badges, chips, or highlighted)",
+				"'Clear all filters' option available",
+				"Filter count badge shows number of active filters",
+				"Filters work in combination with search and sort"
+			],
+			"steps": [
+				"Navigate to library page with games of varying player counts and play times",
+				"Apply player count filter '2 players' - verify only 2-player games shown",
+				"Apply play time filter '30-60 min' - verify combined filter works",
+				"Verify active filter indicators show both filters",
+				"Verify filter count badge shows '2'",
+				"Click 'Clear all filters' - verify all games reappear",
+				"Apply year filter for specific range - verify games filtered",
+				"Combine filter with search - verify both work together",
+				"Combine filter with sort - verify all three work together"
+			],
+			"passes": false
 		}
 	]
 }
