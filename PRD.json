@@ -587,6 +587,223 @@
 				"Combine filter with sort - verify all three work together"
 			],
 			"passes": true
+		},
+		{
+			"id": 25,
+			"category": "library-management",
+			"description": "Game data model includes suggested age field",
+			"acceptanceCriteria": [
+				"Database has 'suggested_age' column (nullable integer)",
+				"DbGame interface includes suggested_age: number | null",
+				"Game interface includes suggestedAge: number | null",
+				"GameInput interface includes suggestedAge?: number | null",
+				"Transform functions map between snake_case and camelCase",
+				"Existing games unaffected (field is nullable)"
+			],
+			"steps": [
+				"Add suggested_age column to games table in Supabase",
+				"Update DbGame interface in src/lib/server/games.ts",
+				"Update Game interface in src/lib/server/games.ts",
+				"Update GameInput interface in src/lib/server/games.ts",
+				"Update transformGame() to map suggested_age to suggestedAge",
+				"Update transformInput() to map suggestedAge to suggested_age",
+				"Verify existing games still load correctly"
+			],
+			"passes": true
+		},
+		{
+			"id": 26,
+			"category": "ai-recognition",
+			"description": "AI extracts suggested minimum age when analyzing board game images",
+			"acceptanceCriteria": [
+				"ExtractedGameData interface includes suggestedAge: number | null",
+				"AI prompt instructs extraction of minimum recommended age",
+				"AI uses board game knowledge to determine age if not visible on box",
+				"Suggested age is included in extraction results for known games",
+				"Graceful handling when age cannot be determined (returns null)"
+			],
+			"steps": [
+				"Update ExtractedGameData interface in src/lib/server/gemini.ts",
+				"Update EXTRACTION_PROMPT to include suggested age extraction",
+				"Update parseSingleGame() to handle suggestedAge field",
+				"Test with well-known game image (e.g., Catan) - verify age extracted",
+				"Test with obscure game - verify null returned gracefully",
+				"Verify suggestedAge flows through to game creation"
+			],
+			"passes": false
+		},
+		{
+			"id": 27,
+			"category": "library-management",
+			"description": "User can manually enter or edit suggested age when adding or editing games",
+			"acceptanceCriteria": [
+				"Add game form includes optional suggested age input field",
+				"Edit game form includes suggested age field pre-populated with existing value",
+				"Field accepts positive integers (validation: 1-21 range typical)",
+				"Invalid values show clear error message",
+				"Field is optional - games can be saved without suggested age"
+			],
+			"steps": [
+				"Add suggestedAge input to src/routes/games/add/+page.svelte",
+				"Add server-side validation in src/routes/games/add/+page.server.ts",
+				"Add suggestedAge input to src/routes/games/[id]/edit/+page.svelte",
+				"Add server-side validation in src/routes/games/[id]/edit/+page.server.ts",
+				"Test adding game with suggested age - verify saved correctly",
+				"Test editing game to add/change suggested age - verify updated",
+				"Test with invalid value (negative, non-integer) - verify error shown"
+			],
+			"passes": false
+		},
+		{
+			"id": 28,
+			"category": "library-management",
+			"description": "Suggested age is displayed on game cards in the library view",
+			"acceptanceCriteria": [
+				"GameCard component accepts suggestedAge prop",
+				"Age displays in user-friendly format (e.g., 'Ages 8+')",
+				"Age only displays when value exists (conditional rendering)",
+				"Display is consistent with other game metadata styling",
+				"Appropriate icon used (e.g., user or calendar icon)"
+			],
+			"steps": [
+				"Add suggestedAge to GameCard Props interface",
+				"Add suggestedAge to component destructuring",
+				"Add conditional rendering for age display",
+				"Pass suggestedAge prop from library page to GameCard",
+				"Test game with suggested age - verify displays correctly",
+				"Test game without suggested age - verify no empty display"
+			],
+			"passes": false
+		},
+		{
+			"id": 29,
+			"category": "ai-recognition",
+			"description": "Script backfills suggested age for existing games using AI lookup",
+			"acceptanceCriteria": [
+				"Script queries all games where suggested_age is null",
+				"For each game, sends title to Gemini to look up recommended age",
+				"Updates database record with AI-determined age",
+				"Includes rate limiting to avoid API throttling",
+				"Handles errors gracefully (logs failures, continues processing)",
+				"Provides progress output during execution",
+				"Can be run multiple times safely (only updates null values)"
+			],
+			"steps": [
+				"Create backfill script in src/lib/server/ or scripts/ directory",
+				"Query games table for records with null suggested_age",
+				"Create Gemini prompt for age lookup by game title",
+				"Implement rate limiting (e.g., 1 request per second)",
+				"Update each game record with returned age",
+				"Log progress and any errors",
+				"Run script and verify existing games are updated",
+				"Run script again - verify already-populated games are skipped"
+			],
+			"passes": false
+		},
+		{
+			"id": 30,
+			"category": "library-management",
+			"description": "Game data model includes play count, personal review, and personal rating fields",
+			"acceptanceCriteria": [
+				"Database has 'play_count' column (nullable integer, default 0)",
+				"Database has 'review' column (nullable text)",
+				"Database has 'personal_rating' column (nullable integer 1-5)",
+				"DbGame interface includes play_count, review, personal_rating fields",
+				"Game interface includes playCount, review, personalRating fields",
+				"GameInput interface includes optional playCount, review, personalRating fields",
+				"Transform functions map between snake_case and camelCase",
+				"Existing games unaffected (new fields are nullable)"
+			],
+			"steps": [
+				"Add play_count, review, personal_rating columns to games table in Supabase",
+				"Update DbGame interface in src/lib/server/games.ts",
+				"Update Game interface in src/lib/server/games.ts",
+				"Update GameInput interface in src/lib/server/games.ts",
+				"Update transformGame() to map new fields",
+				"Update transformInput() to map new fields",
+				"Verify existing games still load correctly"
+			],
+			"passes": false
+		},
+		{
+			"id": 31,
+			"category": "library-management",
+			"description": "User can enter play count, personal review, and star rating when adding or editing games",
+			"acceptanceCriteria": [
+				"Add/edit forms include play count number input",
+				"Add/edit forms include personal review textarea",
+				"Add/edit forms include visual star rating selector (1-5 stars)",
+				"Star rating is clickable - user clicks star to set rating",
+				"Play count validation: non-negative integer",
+				"Personal rating validation: integer 1-5 only",
+				"All fields are optional - games can be saved without them",
+				"Edit form pre-populates with existing values"
+			],
+			"steps": [
+				"Create reusable StarRating component in src/lib/components/",
+				"Add play count input to add game form",
+				"Add review textarea to add game form",
+				"Add StarRating component to add game form",
+				"Add server-side validation in add page server action",
+				"Repeat for edit game form with pre-population",
+				"Test adding game with all new fields",
+				"Test editing game to update fields",
+				"Test star rating click interaction"
+			],
+			"passes": false
+		},
+		{
+			"id": 32,
+			"category": "ux-design",
+			"description": "Clicking a game card opens an expanded modal view with full game details",
+			"acceptanceCriteria": [
+				"Clicking anywhere on game card (except Edit/Delete buttons) opens modal",
+				"Modal displays larger box art image",
+				"Modal shows full description without truncation",
+				"Modal displays all game metadata (players, time, year, categories)",
+				"Modal shows BGG rating and rank if available",
+				"Modal shows personal rating, play count, and review if available",
+				"Close button (X) dismisses modal",
+				"Clicking outside modal dismisses it",
+				"Edit button in modal navigates to edit page"
+			],
+			"steps": [
+				"Add Dialog.Root wrapper to GameCard component",
+				"Create expanded view layout inside Dialog.Content",
+				"Display full description in scrollable area",
+				"Show all game fields with appropriate formatting",
+				"Add close button in modal header",
+				"Prevent card click from triggering when clicking Edit/Delete",
+				"Test modal opens on card click",
+				"Test modal closes via X button and outside click",
+				"Test Edit button in modal works correctly"
+			],
+			"passes": false
+		},
+		{
+			"id": 33,
+			"category": "library-management",
+			"description": "User can quickly update play count directly from the expanded game modal",
+			"acceptanceCriteria": [
+				"Expanded modal shows play count with +/- buttons",
+				"Clicking + increments play count by 1",
+				"Clicking - decrements play count by 1 (minimum 0)",
+				"Update persists to database immediately",
+				"Visual feedback shows update in progress",
+				"Play count updates without closing modal",
+				"Updated count reflects in library view when modal closes"
+			],
+			"steps": [
+				"Add play count display with +/- buttons to expanded modal",
+				"Create server action for quick play count update",
+				"Implement increment button with form action",
+				"Implement decrement button with form action (min 0)",
+				"Add loading state during update",
+				"Test incrementing play count multiple times",
+				"Test decrementing play count (verify doesn't go below 0)",
+				"Verify library view shows updated count after modal close"
+			],
+			"passes": false
 		}
 	]
 }
