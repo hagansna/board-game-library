@@ -3,6 +3,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import StarRating from '$lib/components/StarRating.svelte';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 
@@ -332,6 +333,50 @@
 						{#if form?.errors?.bggRank}
 							<p class="text-sm text-destructive">{form.errors.bggRank}</p>
 						{/if}
+					</div>
+
+					<div class="border-t pt-6">
+						<h3 class="mb-4 text-sm font-medium text-foreground">Personal Tracking</h3>
+
+						<div class="space-y-6">
+							<div class="space-y-2">
+								<Label for="playCount">Play Count</Label>
+								<Input
+									id="playCount"
+									name="playCount"
+									type="number"
+									min="0"
+									placeholder="e.g., 5"
+									value={form?.playCount ?? data.game.playCount ?? ''}
+								/>
+								<p class="text-xs text-muted-foreground">How many times you've played this game</p>
+								{#if form?.errors?.playCount}
+									<p class="text-sm text-destructive">{form.errors.playCount}</p>
+								{/if}
+							</div>
+
+							<div class="space-y-2">
+								<Label>Personal Rating</Label>
+								<StarRating value={form?.personalRating ? parseInt(form.personalRating) : data.game.personalRating} name="personalRating" />
+								<p class="text-xs text-muted-foreground">Your personal rating (1-5 stars)</p>
+								{#if form?.errors?.personalRating}
+									<p class="text-sm text-destructive">{form.errors.personalRating}</p>
+								{/if}
+							</div>
+
+							<div class="space-y-2">
+								<Label for="review">Personal Review</Label>
+								<textarea
+									id="review"
+									name="review"
+									placeholder="Your thoughts on the game..."
+									rows="4"
+									class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+									>{form?.review ?? data.game.review ?? ''}</textarea
+								>
+								<p class="text-xs text-muted-foreground">Your personal review or notes about this game</p>
+							</div>
+						</div>
 					</div>
 
 					<div class="flex gap-4 pt-4">

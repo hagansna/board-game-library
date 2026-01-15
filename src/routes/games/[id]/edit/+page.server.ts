@@ -56,6 +56,9 @@ export const actions: Actions = {
 		const bggRatingStr = formData.get('bggRating')?.toString().trim() ?? '';
 		const bggRankStr = formData.get('bggRank')?.toString().trim() ?? '';
 		const suggestedAgeStr = formData.get('suggestedAge')?.toString().trim() ?? '';
+		const playCountStr = formData.get('playCount')?.toString().trim() ?? '';
+		const personalRatingStr = formData.get('personalRating')?.toString().trim() ?? '';
+		const review = formData.get('review')?.toString().trim() || null;
 
 		const errors: {
 			title?: string;
@@ -66,6 +69,8 @@ export const actions: Actions = {
 			bggRating?: string;
 			bggRank?: string;
 			suggestedAge?: string;
+			playCount?: string;
+			personalRating?: string;
 		} = {};
 
 		// Validate title (required)
@@ -167,6 +172,18 @@ export const actions: Actions = {
 			errors.suggestedAge = 'Suggested age must be between 1 and 21';
 		}
 
+		// Validate and parse play count
+		const playCount = playCountStr ? parseInt(playCountStr, 10) : null;
+		if (playCountStr && (isNaN(playCount!) || playCount! < 0)) {
+			errors.playCount = 'Play count must be a non-negative number';
+		}
+
+		// Validate and parse personal rating
+		const personalRating = personalRatingStr ? parseInt(personalRatingStr, 10) : null;
+		if (personalRatingStr && (isNaN(personalRating!) || personalRating! < 1 || personalRating! > 5)) {
+			errors.personalRating = 'Personal rating must be between 1 and 5';
+		}
+
 		// Return validation errors
 		if (Object.keys(errors).length > 0) {
 			return fail(400, {
@@ -182,6 +199,9 @@ export const actions: Actions = {
 				bggRating: bggRatingStr,
 				bggRank: bggRankStr,
 				suggestedAge: suggestedAgeStr,
+				playCount: playCountStr,
+				personalRating: personalRatingStr,
+				review: review ?? '',
 				errors
 			});
 		}
@@ -200,7 +220,10 @@ export const actions: Actions = {
 				categories,
 				bggRating,
 				bggRank,
-				suggestedAge
+				suggestedAge,
+				playCount,
+				personalRating,
+				review
 			});
 
 			if (!updatedGame) {
@@ -224,6 +247,9 @@ export const actions: Actions = {
 				bggRating: bggRatingStr,
 				bggRank: bggRankStr,
 				suggestedAge: suggestedAgeStr,
+				playCount: playCountStr,
+				personalRating: personalRatingStr,
+				review: review ?? '',
 				error: 'An error occurred while updating the game. Please try again.'
 			});
 		}
