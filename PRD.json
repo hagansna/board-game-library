@@ -254,7 +254,7 @@
 				"Verify game appears in library with corrected information",
 				"Test cancel action - verify game is not added to library"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 12,
