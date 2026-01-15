@@ -630,7 +630,7 @@
 				"Test with obscure game - verify null returned gracefully",
 				"Verify suggestedAge flows through to game creation"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 27,
