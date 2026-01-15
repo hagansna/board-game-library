@@ -28,6 +28,10 @@ model Game {
   playTimeMin Int?
   playTimeMax Int?
   boxArtUrl   String?
+  description String?
+  categories  String?  // JSON array stored as string
+  bggRating   Float?
+  bggRank     Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   userId      String

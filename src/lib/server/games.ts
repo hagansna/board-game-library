@@ -19,6 +19,10 @@ export async function getUserGames(userId: string): Promise<GameWithoutUser[]> {
 			playTimeMin: true,
 			playTimeMax: true,
 			boxArtUrl: true,
+			description: true,
+			categories: true,
+			bggRating: true,
+			bggRank: true,
 			createdAt: true,
 			updatedAt: true
 		}
@@ -44,6 +48,10 @@ export async function getGameById(gameId: string, userId: string): Promise<GameW
 			playTimeMin: true,
 			playTimeMax: true,
 			boxArtUrl: true,
+			description: true,
+			categories: true,
+			bggRating: true,
+			bggRank: true,
 			createdAt: true,
 			updatedAt: true
 		}
@@ -64,6 +72,10 @@ export async function createGame(
 		playTimeMin?: number | null;
 		playTimeMax?: number | null;
 		boxArtUrl?: string | null;
+		description?: string | null;
+		categories?: string | null;
+		bggRating?: number | null;
+		bggRank?: number | null;
 	}
 ): Promise<GameWithoutUser> {
 	const game = await prisma.game.create({
@@ -80,6 +92,10 @@ export async function createGame(
 			playTimeMin: true,
 			playTimeMax: true,
 			boxArtUrl: true,
+			description: true,
+			categories: true,
+			bggRating: true,
+			bggRank: true,
 			createdAt: true,
 			updatedAt: true
 		}
@@ -102,6 +118,10 @@ export async function updateGame(
 		playTimeMin?: number | null;
 		playTimeMax?: number | null;
 		boxArtUrl?: string | null;
+		description?: string | null;
+		categories?: string | null;
+		bggRating?: number | null;
+		bggRank?: number | null;
 	}
 ): Promise<GameWithoutUser | null> {
 	// First check if game exists and belongs to user
@@ -128,6 +148,10 @@ export async function updateGame(
 			playTimeMin: true,
 			playTimeMax: true,
 			boxArtUrl: true,
+			description: true,
+			categories: true,
+			bggRating: true,
+			bggRank: true,
 			createdAt: true,
 			updatedAt: true
 		}

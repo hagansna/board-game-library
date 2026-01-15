@@ -14,10 +14,29 @@
 		playTimeMin?: number | null;
 		playTimeMax?: number | null;
 		boxArtUrl?: string | null;
+		description?: string | null;
+		categories?: string | null;
+		bggRating?: number | null;
+		bggRank?: number | null;
 	}
 
-	let { id, title, year, minPlayers, maxPlayers, playTimeMin, playTimeMax, boxArtUrl }: Props =
-		$props();
+	let {
+		id,
+		title,
+		year,
+		minPlayers,
+		maxPlayers,
+		playTimeMin,
+		playTimeMax,
+		boxArtUrl,
+		description,
+		categories,
+		bggRating,
+		bggRank
+	}: Props = $props();
+
+	// Parse categories JSON string to array
+	const categoryList = $derived(categories ? (JSON.parse(categories) as string[]) : []);
 
 	let deleteDialogOpen = $state(false);
 	let isDeleting = $state(false);
@@ -91,7 +110,8 @@
 			<Card.Description>{year}</Card.Description>
 		{/if}
 	</Card.Header>
-	<Card.Content>
+	<Card.Content class="space-y-3">
+		<!-- Player count and play time -->
 		<div class="flex flex-wrap gap-3 text-sm text-muted-foreground">
 			{#if playersText}
 				<span class="flex items-center gap-1">
@@ -136,6 +156,66 @@
 				</span>
 			{/if}
 		</div>
+
+		<!-- BGG Rating and Rank -->
+		{#if bggRating != null || bggRank != null}
+			<div class="flex flex-wrap gap-3 text-sm text-muted-foreground">
+				{#if bggRating != null}
+					<span class="flex items-center gap-1" title="BoardGameGeek Rating">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="currentColor"
+							class="inline-block text-yellow-500"
+						>
+							<polygon
+								points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+							/>
+						</svg>
+						{bggRating.toFixed(1)}
+					</span>
+				{/if}
+				{#if bggRank != null}
+					<span class="flex items-center gap-1" title="BoardGameGeek Rank">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							width="16"
+							height="16"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							class="inline-block"
+						>
+							<line x1="18" x2="18" y1="20" y2="10" />
+							<line x1="12" x2="12" y1="20" y2="4" />
+							<line x1="6" x2="6" y1="20" y2="14" />
+						</svg>
+						#{bggRank}
+					</span>
+				{/if}
+			</div>
+		{/if}
+
+		<!-- Categories as tags -->
+		{#if categoryList.length > 0}
+			<div class="flex flex-wrap gap-1">
+				{#each categoryList as category}
+					<span class="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+						{category}
+					</span>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Description (truncated) -->
+		{#if description}
+			<p class="line-clamp-2 text-sm text-muted-foreground">{description}</p>
+		{/if}
 	</Card.Content>
 	<Card.Footer class="gap-2 pt-0">
 		<Button variant="outline" size="sm" href={resolve(`/games/${id}/edit`)}>

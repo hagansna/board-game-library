@@ -508,7 +508,7 @@
 				"Edit existing game - verify new fields can be modified",
 				"Add game manually - verify new fields are available in form"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 22,

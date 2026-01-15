@@ -248,6 +248,66 @@
 						{/if}
 					</div>
 
+					<div class="space-y-2">
+						<Label for="description">Description</Label>
+						<textarea
+							id="description"
+							name="description"
+							placeholder="Brief description of the game..."
+							rows="3"
+							class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+							>{form?.description ?? ''}</textarea
+						>
+					</div>
+
+					<div class="space-y-2">
+						<Label for="categories">Categories</Label>
+						<Input
+							id="categories"
+							name="categories"
+							type="text"
+							placeholder="e.g., strategy, trading, family (comma-separated)"
+							value={form?.categories ?? ''}
+						/>
+						<p class="text-xs text-muted-foreground">Separate categories with commas</p>
+					</div>
+
+					<div class="space-y-2">
+						<Label>BoardGameGeek Info</Label>
+						<div class="flex items-center gap-4">
+							<div class="flex-1 space-y-1">
+								<Label for="bggRating" class="text-sm text-muted-foreground">Rating</Label>
+								<Input
+									id="bggRating"
+									name="bggRating"
+									type="number"
+									step="0.1"
+									min="0"
+									max="10"
+									placeholder="e.g., 7.5"
+									value={form?.bggRating ?? ''}
+								/>
+							</div>
+							<div class="flex-1 space-y-1">
+								<Label for="bggRank" class="text-sm text-muted-foreground">Rank</Label>
+								<Input
+									id="bggRank"
+									name="bggRank"
+									type="number"
+									min="1"
+									placeholder="e.g., 150"
+									value={form?.bggRank ?? ''}
+								/>
+							</div>
+						</div>
+						{#if form?.errors?.bggRating}
+							<p class="text-sm text-destructive">{form.errors.bggRating}</p>
+						{/if}
+						{#if form?.errors?.bggRank}
+							<p class="text-sm text-destructive">{form.errors.bggRank}</p>
+						{/if}
+					</div>
+
 					<div class="flex gap-4 pt-4">
 						<Button type="button" variant="outline" href={resolve('/games')} class="flex-1"
 							>Cancel</Button

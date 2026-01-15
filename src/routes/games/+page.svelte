@@ -539,6 +539,10 @@
 						playTimeMin={game.playTimeMin}
 						playTimeMax={game.playTimeMax}
 						boxArtUrl={game.boxArtUrl}
+						description={game.description}
+						categories={game.categories}
+						bggRating={game.bggRating}
+						bggRank={game.bggRank}
 					/>
 				{/each}
 			</div>

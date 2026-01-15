@@ -32,6 +32,10 @@ export const actions: Actions = {
 		const playTimeMaxStr = formData.get('playTimeMax')?.toString().trim() ?? '';
 		const boxArtUrlInput = formData.get('boxArtUrl')?.toString().trim() ?? '';
 		const boxArtFile = formData.get('boxArtFile') as File | null;
+		const description = formData.get('description')?.toString().trim() || null;
+		const categoriesInput = formData.get('categories')?.toString().trim() ?? '';
+		const bggRatingStr = formData.get('bggRating')?.toString().trim() ?? '';
+		const bggRankStr = formData.get('bggRank')?.toString().trim() ?? '';
 
 		const errors: {
 			title?: string;
@@ -39,6 +43,8 @@ export const actions: Actions = {
 			players?: string;
 			playTime?: string;
 			boxArt?: string;
+			bggRating?: string;
+			bggRank?: string;
 		} = {};
 
 		// Validate title (required)
@@ -98,6 +104,30 @@ export const actions: Actions = {
 			}
 		}
 
+		// Parse categories from comma-separated string to JSON array
+		let categories: string | null = null;
+		if (categoriesInput) {
+			const categoryArray = categoriesInput
+				.split(',')
+				.map((c) => c.trim())
+				.filter((c) => c.length > 0);
+			if (categoryArray.length > 0) {
+				categories = JSON.stringify(categoryArray);
+			}
+		}
+
+		// Validate and parse BGG rating
+		const bggRating = bggRatingStr ? parseFloat(bggRatingStr) : null;
+		if (bggRatingStr && (isNaN(bggRating!) || bggRating! < 0 || bggRating! > 10)) {
+			errors.bggRating = 'Rating must be between 0 and 10';
+		}
+
+		// Validate and parse BGG rank
+		const bggRank = bggRankStr ? parseInt(bggRankStr, 10) : null;
+		if (bggRankStr && (isNaN(bggRank!) || bggRank! < 1)) {
+			errors.bggRank = 'Rank must be at least 1';
+		}
+
 		// Return validation errors
 		if (Object.keys(errors).length > 0) {
 			return fail(400, {
@@ -108,6 +138,10 @@ export const actions: Actions = {
 				playTimeMin: playTimeMinStr,
 				playTimeMax: playTimeMaxStr,
 				boxArtUrl: boxArtUrlInput,
+				description: description ?? '',
+				categories: categoriesInput,
+				bggRating: bggRatingStr,
+				bggRank: bggRankStr,
 				errors
 			});
 		}
@@ -121,7 +155,11 @@ export const actions: Actions = {
 				maxPlayers,
 				playTimeMin,
 				playTimeMax,
-				boxArtUrl
+				boxArtUrl,
+				description,
+				categories,
+				bggRating,
+				bggRank
 			});
 		} catch {
 			return fail(500, {
@@ -132,6 +170,10 @@ export const actions: Actions = {
 				playTimeMin: playTimeMinStr,
 				playTimeMax: playTimeMaxStr,
 				boxArtUrl: boxArtUrlInput,
+				description: description ?? '',
+				categories: categoriesInput,
+				bggRating: bggRatingStr,
+				bggRank: bggRankStr,
 				error: 'An error occurred while adding the game. Please try again.'
 			});
 		}
