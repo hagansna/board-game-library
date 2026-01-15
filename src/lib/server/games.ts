@@ -15,6 +15,7 @@ interface DbGame {
 	categories: string[] | null;
 	bgg_rating: number | null;
 	bgg_rank: number | null;
+	suggested_age: number | null;
 	created_at: string;
 	updated_at: string;
 }
@@ -33,6 +34,7 @@ export interface Game {
 	categories: string[] | null;
 	bggRating: number | null;
 	bggRank: number | null;
+	suggestedAge: number | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -50,6 +52,7 @@ export interface GameInput {
 	categories?: string | null; // JSON string from form
 	bggRating?: number | null;
 	bggRank?: number | null;
+	suggestedAge?: number | null;
 }
 
 // Transform snake_case DB record to camelCase for app
@@ -67,6 +70,7 @@ function transformGame(game: DbGame): Game {
 		categories: game.categories,
 		bggRating: game.bgg_rating,
 		bggRank: game.bgg_rank,
+		suggestedAge: game.suggested_age,
 		createdAt: game.created_at,
 		updatedAt: game.updated_at
 	};
@@ -87,6 +91,7 @@ function transformInput(data: GameInput): Record<string, unknown> {
 	if (data.description !== undefined) result.description = data.description;
 	if (data.bggRating !== undefined) result.bgg_rating = data.bggRating;
 	if (data.bggRank !== undefined) result.bgg_rank = data.bggRank;
+	if (data.suggestedAge !== undefined) result.suggested_age = data.suggestedAge;
 
 	// Parse categories JSON string to array for JSONB column
 	if (data.categories !== undefined) {
