@@ -804,6 +804,242 @@
 				"Verify library view shows updated count after modal close"
 			],
 			"passes": true
+		},
+		{
+			"id": 34,
+			"category": "library-management",
+			"description": "Database has library_games table for user-specific game data",
+			"acceptanceCriteria": [
+				"library_games table exists with columns: id, user_id, game_id, play_count, personal_rating, review, created_at, updated_at",
+				"Foreign key references games(id) for game_id",
+				"Foreign key references auth.users(id) for user_id",
+				"Unique constraint on (user_id, game_id) prevents duplicate entries",
+				"play_count defaults to 0",
+				"personal_rating constrained to 1-5 range",
+				"RLS policies restrict access to user's own rows"
+			],
+			"steps": [
+				"Create library_games table in Supabase with all columns",
+				"Add foreign key constraints",
+				"Add unique constraint on user_id + game_id",
+				"Create RLS policies for SELECT, INSERT, UPDATE, DELETE",
+				"Verify policies work by testing with different users"
+			],
+			"passes": true
+		},
+		{
+			"id": 35,
+			"category": "library-management",
+			"description": "Games table contains only shared game metadata without user-specific fields",
+			"acceptanceCriteria": [
+				"games table has no user_id column",
+				"games table has no play_count column",
+				"games table has no personal_rating column",
+				"games table has no review column",
+				"RLS policy allows all authenticated users to SELECT from games",
+				"RLS policy restricts INSERT/UPDATE/DELETE to admin or service role"
+			],
+			"steps": [
+				"Remove user_id, play_count, personal_rating, review columns from games table",
+				"Update RLS policy for SELECT to allow all authenticated users",
+				"Create restrictive RLS policies for INSERT/UPDATE/DELETE",
+				"Verify shared games are readable by all authenticated users"
+			],
+			"passes": false
+		},
+		{
+			"id": 36,
+			"category": "library-management",
+			"description": "TypeScript interfaces reflect the split database schema",
+			"acceptanceCriteria": [
+				"DbGame interface contains only shared game metadata fields",
+				"DbLibraryGame interface contains user-specific fields (user_id, game_id, play_count, personal_rating, review)",
+				"UserGameView interface combines game and library data for UI",
+				"Transform functions handle mapping between DB and app types",
+				"Existing code compiles without errors"
+			],
+			"steps": [
+				"Update DbGame interface to remove user-specific fields",
+				"Create DbLibraryGame interface for library_games table",
+				"Create UserGameView interface for combined data",
+				"Update transformGame() function",
+				"Create transformLibraryEntry() function",
+				"Verify TypeScript compilation succeeds"
+			],
+			"passes": false
+		},
+		{
+			"id": 37,
+			"category": "library-management",
+			"description": "getUserLibrary function returns combined game and library data via JOIN",
+			"acceptanceCriteria": [
+				"getUserLibrary() replaces getUserGames()",
+				"Function performs JOIN between games and library_games tables",
+				"Returns UserGameView[] with both game metadata and user-specific data",
+				"Results filtered by authenticated user's library entries",
+				"Empty array returned if user has no library entries"
+			],
+			"steps": [
+				"Create getUserLibrary() function with JOIN query",
+				"Query: SELECT from library_games JOIN games ON game_id",
+				"Filter by user_id from authenticated session",
+				"Transform results to UserGameView type",
+				"Update routes/games/+page.server.ts to use new function",
+				"Verify library page displays correctly"
+			],
+			"passes": false
+		},
+		{
+			"id": 38,
+			"category": "library-management",
+			"description": "CRUD operations work with the split schema for user library entries",
+			"acceptanceCriteria": [
+				"addGameToLibrary() inserts into library_games table only",
+				"getLibraryEntryById() returns combined game + library data",
+				"updateLibraryEntry() updates library_games fields only",
+				"removeFromLibrary() deletes from library_games only (game stays in catalog)",
+				"updatePlayCount() updates library_games.play_count"
+			],
+			"steps": [
+				"Create addGameToLibrary(userId, gameId, libraryData) function",
+				"Create getLibraryEntryById(libraryEntryId) with JOIN query",
+				"Create updateLibraryEntry(id, data) for play_count, rating, review",
+				"Create removeFromLibrary(id) to delete library entry",
+				"Update updatePlayCount() to target library_games table",
+				"Update all route handlers to use new functions"
+			],
+			"passes": false
+		},
+		{
+			"id": 39,
+			"category": "library-management",
+			"description": "Admin functions exist for managing the shared game catalog",
+			"acceptanceCriteria": [
+				"getAllGames() returns all games from shared catalog",
+				"searchGames(query) searches catalog by title",
+				"getGameById(id) returns single game from catalog",
+				"createSharedGame(data) adds new game to catalog",
+				"updateSharedGame(id, data) edits game metadata",
+				"Functions use service role or bypass RLS appropriately"
+			],
+			"steps": [
+				"Create getAllGames() function",
+				"Create searchGames(query) with title ILIKE search",
+				"Create getGameById(id) for single game lookup",
+				"Create createSharedGame() for inserting new games",
+				"Create updateSharedGame() for editing games",
+				"Ensure functions work with admin/service role"
+			],
+			"passes": false
+		},
+		{
+			"id": 40,
+			"category": "library-management",
+			"description": "Add to library page allows searching catalog and selecting games to add",
+			"acceptanceCriteria": [
+				"Add page shows search input for finding games in catalog",
+				"Search results display matching games with key info",
+				"User can select a game to add to their library",
+				"Selected game creates library_games entry",
+				"Optional: set initial play_count, rating, review on add",
+				"Success redirects to library page with new entry visible"
+			],
+			"steps": [
+				"Replace add game form with search interface",
+				"Add server action to search shared catalog",
+				"Display search results as selectable list",
+				"Add form action to add selected game to library",
+				"Include optional fields for play_count, rating, review",
+				"Test adding game from search results"
+			],
+			"passes": false
+		},
+		{
+			"id": 41,
+			"category": "library-management",
+			"description": "Edit page shows game info read-only and only allows editing library fields",
+			"acceptanceCriteria": [
+				"Edit page displays game metadata as read-only (title, year, players, etc.)",
+				"Only play_count, personal_rating, review fields are editable",
+				"Form submission updates library_games table only",
+				"Game metadata fields removed from form",
+				"Page clearly indicates which fields can be edited"
+			],
+			"steps": [
+				"Update edit page load to use getLibraryEntryById()",
+				"Display game metadata in read-only section",
+				"Keep only editable fields: play_count, personal_rating, review",
+				"Update form action to call updateLibraryEntry()",
+				"Remove all game metadata form inputs",
+				"Test editing library entry"
+			],
+			"passes": false
+		},
+		{
+			"id": 42,
+			"category": "library-management",
+			"description": "Admin section exists for managing the shared game catalog",
+			"acceptanceCriteria": [
+				"/admin/games page lists all games in shared catalog",
+				"/admin/games/add page has full form for creating games",
+				"/admin/games/[id]/edit page allows editing game metadata",
+				"Forms include all game fields: title, year, players, play_time, description, categories, BGG info, box_art",
+				"Admin pages protected appropriately"
+			],
+			"steps": [
+				"Create /admin/games route with game listing",
+				"Create /admin/games/add route with full game form",
+				"Create /admin/games/[id]/edit route for editing games",
+				"Implement search and pagination for game list",
+				"Wire up form actions to admin CRUD functions",
+				"Test full admin workflow: add, edit, view games"
+			],
+			"passes": false
+		},
+		{
+			"id": 43,
+			"category": "ai-recognition",
+			"description": "AI upload identifies games and links them to user library from existing catalog",
+			"acceptanceCriteria": [
+				"AI analyzes image and extracts game title/metadata",
+				"System searches shared catalog for matching game",
+				"If match found: display match for user confirmation",
+				"User confirms match: creates library_games entry",
+				"If no match: display 'Game not in catalog' message",
+				"User can search catalog manually if AI match is wrong"
+			],
+			"steps": [
+				"Keep existing AI analysis flow",
+				"After AI extraction, search catalog by title",
+				"Display match results with confidence indicator",
+				"Add 'Confirm and Add' action for matched games",
+				"Add 'Not Found' state with manual search option",
+				"Test with games in catalog and games not in catalog"
+			],
+			"passes": false
+		},
+		{
+			"id": 44,
+			"category": "library-management",
+			"description": "Migration script converts existing data to split schema",
+			"acceptanceCriteria": [
+				"Script handles all existing games in database",
+				"Deduplicates games by title (keeps one shared record)",
+				"Creates library_games entries for each user's games",
+				"Preserves user-specific data (play_count, rating, review)",
+				"Can be run multiple times safely (idempotent)",
+				"Logs progress and handles errors gracefully"
+			],
+			"steps": [
+				"Create migration script in scripts/ directory",
+				"Fetch all existing games with user_id",
+				"Group by title for deduplication",
+				"Insert unique games to new games table structure",
+				"Create library_games entries linking users to games",
+				"Log progress and summary",
+				"Test with development data before production"
+			],
+			"passes": false
 		}
 	]
 }
