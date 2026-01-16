@@ -9,7 +9,7 @@
  *   npx tsx scripts/backfill-suggested-age.ts
  *
  * Requirements:
- *   - SUPABASE_URL and SUPABASE_ANON_KEY environment variables
+ *   - SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables (service role bypasses RLS)
  *   - GEMINI_API_KEY environment variable
  *
  * Features:
@@ -90,14 +90,14 @@ function getGeminiClient(): GoogleGenerativeAI {
 }
 
 /**
- * Initialize Supabase client
+ * Initialize Supabase client with service role key (bypasses RLS)
  */
 function getSupabaseClient(): SupabaseClient {
 	const url = process.env.SUPABASE_URL;
-	const key = process.env.SUPABASE_ANON_KEY;
+	const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 	if (!url || !key) {
-		throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY environment variables are required');
+		throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables are required');
 	}
 
 	return createClient(url, key);

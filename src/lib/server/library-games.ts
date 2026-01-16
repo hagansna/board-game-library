@@ -545,3 +545,261 @@ export async function isGameInLibrary(
 
 	return true;
 }
+
+/**
+ * Get the user's full library with combined game metadata and user-specific data
+ * This performs a JOIN between library_games and games tables
+ * RLS ensures only the authenticated user's library entries are returned
+ *
+ * @param supabase - Supabase client with user session
+ * @param sortBy - Sort order for results (default: 'title')
+ * @returns Array of UserGameView objects containing both game metadata and library data
+ */
+export async function getUserLibrary(
+	supabase: SupabaseClient,
+	sortBy: 'title' | 'recently_added' | 'year' | 'play_count' = 'title'
+): Promise<UserGameView[]> {
+	// Use Supabase relation query to get library entries with embedded game data
+	// The `games(*)` syntax fetches the related game record via the game_id foreign key
+	const { data, error } = await supabase
+		.from('library_games')
+		.select(`
+			id,
+			user_id,
+			game_id,
+			play_count,
+			personal_rating,
+			review,
+			created_at,
+			updated_at,
+			games (
+				id,
+				title,
+				year,
+				min_players,
+				max_players,
+				play_time_min,
+				play_time_max,
+				box_art_url,
+				description,
+				categories,
+				bgg_rating,
+				bgg_rank,
+				suggested_age,
+				created_at,
+				updated_at
+			)
+		`);
+
+	if (error) {
+		console.error('Error fetching user library:', error);
+		return [];
+	}
+
+	if (!data || data.length === 0) {
+		return [];
+	}
+
+	// Transform DB records to UserGameView
+	// Filter out any entries where the game relation is null (shouldn't happen but be safe)
+	const userGameViews: UserGameView[] = [];
+
+	for (const row of data) {
+		// Supabase returns the relation as a single object (not array) because it's a many-to-one
+		const gameData = row.games as DbGame | null;
+
+		if (!gameData) {
+			// Skip entries where the game was deleted but library entry remains
+			// This shouldn't happen with CASCADE delete but handle it gracefully
+			console.warn(`Library entry ${row.id} has no associated game (game_id: ${row.game_id})`);
+			continue;
+		}
+
+		const dbUserGameView: DbUserGameView = {
+			id: row.id,
+			user_id: row.user_id,
+			game_id: row.game_id,
+			play_count: row.play_count,
+			personal_rating: row.personal_rating,
+			review: row.review,
+			created_at: row.created_at,
+			updated_at: row.updated_at,
+			games: gameData
+		};
+
+		userGameViews.push(transformUserGameView(dbUserGameView));
+	}
+
+	// Sort the results based on the requested sort order
+	switch (sortBy) {
+		case 'title':
+			userGameViews.sort((a, b) => a.title.localeCompare(b.title));
+			break;
+		case 'recently_added':
+			userGameViews.sort(
+				(a, b) =>
+					new Date(b.libraryEntryCreatedAt).getTime() -
+					new Date(a.libraryEntryCreatedAt).getTime()
+			);
+			break;
+		case 'year':
+			userGameViews.sort((a, b) => {
+				// Sort nulls to the end
+				if (a.year === null && b.year === null) return 0;
+				if (a.year === null) return 1;
+				if (b.year === null) return -1;
+				return b.year - a.year; // Newest first
+			});
+			break;
+		case 'play_count':
+			userGameViews.sort((a, b) => {
+				const countA = a.playCount ?? 0;
+				const countB = b.playCount ?? 0;
+				return countB - countA; // Most played first
+			});
+			break;
+	}
+
+	return userGameViews;
+}
+
+/**
+ * Get a single library entry with full game details by library entry ID
+ * This performs a JOIN to get both library data and game metadata
+ * RLS ensures user can only access their own entries
+ *
+ * @param supabase - Supabase client with user session
+ * @param libraryEntryId - The ID of the library_games entry
+ * @returns UserGameView with combined data, or null if not found
+ */
+export async function getLibraryEntryWithGame(
+	supabase: SupabaseClient,
+	libraryEntryId: string
+): Promise<UserGameView | null> {
+	const { data, error } = await supabase
+		.from('library_games')
+		.select(`
+			id,
+			user_id,
+			game_id,
+			play_count,
+			personal_rating,
+			review,
+			created_at,
+			updated_at,
+			games (
+				id,
+				title,
+				year,
+				min_players,
+				max_players,
+				play_time_min,
+				play_time_max,
+				box_art_url,
+				description,
+				categories,
+				bgg_rating,
+				bgg_rank,
+				suggested_age,
+				created_at,
+				updated_at
+			)
+		`)
+		.eq('id', libraryEntryId)
+		.single();
+
+	if (error || !data) {
+		return null;
+	}
+
+	const gameData = data.games as DbGame | null;
+
+	if (!gameData) {
+		console.warn(`Library entry ${data.id} has no associated game`);
+		return null;
+	}
+
+	const dbUserGameView: DbUserGameView = {
+		id: data.id,
+		user_id: data.user_id,
+		game_id: data.game_id,
+		play_count: data.play_count,
+		personal_rating: data.personal_rating,
+		review: data.review,
+		created_at: data.created_at,
+		updated_at: data.updated_at,
+		games: gameData
+	};
+
+	return transformUserGameView(dbUserGameView);
+}
+
+/**
+ * Get a library entry with full game details by game ID for the current user
+ * RLS ensures user can only access their own entries
+ *
+ * @param supabase - Supabase client with user session
+ * @param gameId - The ID of the game in the shared catalog
+ * @returns UserGameView with combined data, or null if not found
+ */
+export async function getLibraryEntryWithGameByGameId(
+	supabase: SupabaseClient,
+	gameId: string
+): Promise<UserGameView | null> {
+	const { data, error } = await supabase
+		.from('library_games')
+		.select(`
+			id,
+			user_id,
+			game_id,
+			play_count,
+			personal_rating,
+			review,
+			created_at,
+			updated_at,
+			games (
+				id,
+				title,
+				year,
+				min_players,
+				max_players,
+				play_time_min,
+				play_time_max,
+				box_art_url,
+				description,
+				categories,
+				bgg_rating,
+				bgg_rank,
+				suggested_age,
+				created_at,
+				updated_at
+			)
+		`)
+		.eq('game_id', gameId)
+		.single();
+
+	if (error || !data) {
+		return null;
+	}
+
+	const gameData = data.games as DbGame | null;
+
+	if (!gameData) {
+		console.warn(`Library entry ${data.id} has no associated game`);
+		return null;
+	}
+
+	const dbUserGameView: DbUserGameView = {
+		id: data.id,
+		user_id: data.user_id,
+		game_id: data.game_id,
+		play_count: data.play_count,
+		personal_rating: data.personal_rating,
+		review: data.review,
+		created_at: data.created_at,
+		updated_at: data.updated_at,
+		games: gameData
+	};
+
+	return transformUserGameView(dbUserGameView);
+}
