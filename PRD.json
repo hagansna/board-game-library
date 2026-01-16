@@ -866,7 +866,7 @@
 				"Create transformLibraryEntry() function",
 				"Verify TypeScript compilation succeeds"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 37,
