@@ -930,7 +930,7 @@
 				"Create updateSharedGame() for editing games",
 				"Ensure functions work with admin/service role"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 40,
