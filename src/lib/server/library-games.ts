@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { type DbGame, type Game, transformGame } from './games.js';
 
 /**
  * Library Games Module
@@ -74,6 +75,93 @@ export interface LibraryGameInput {
 }
 
 /**
+ * Combined view interface for UI display
+ * Combines shared game metadata with user-specific library data
+ * This is what the frontend uses to display games in a user's library
+ */
+export interface UserGameView {
+	// Library entry identifiers
+	libraryEntryId: string;
+	gameId: string;
+	userId: string;
+
+	// Shared game metadata (from games table)
+	title: string;
+	year: number | null;
+	minPlayers: number | null;
+	maxPlayers: number | null;
+	playTimeMin: number | null;
+	playTimeMax: number | null;
+	boxArtUrl: string | null;
+	description: string | null;
+	categories: string[] | null;
+	bggRating: number | null;
+	bggRank: number | null;
+	suggestedAge: number | null;
+
+	// User-specific data (from library_games table)
+	playCount: number | null;
+	personalRating: number | null;
+	review: string | null;
+
+	// Timestamps
+	gameCreatedAt: string;
+	gameUpdatedAt: string;
+	libraryEntryCreatedAt: string;
+	libraryEntryUpdatedAt: string;
+}
+
+/**
+ * Database row type for JOIN query result
+ * This represents the raw result of joining library_games with games
+ */
+export interface DbUserGameView {
+	// Library entry fields (prefixed with library_ in JOIN)
+	id: string; // library_games.id
+	user_id: string;
+	game_id: string;
+	play_count: number | null;
+	personal_rating: number | null;
+	review: string | null;
+	created_at: string; // library_games.created_at
+	updated_at: string; // library_games.updated_at
+
+	// Game metadata (from embedded games relation)
+	games: DbGame;
+}
+
+/**
+ * Alternative flattened JOIN result for simpler queries
+ */
+export interface DbUserGameViewFlat {
+	// Library entry fields
+	library_id: string;
+	user_id: string;
+	game_id: string;
+	play_count: number | null;
+	personal_rating: number | null;
+	review: string | null;
+	library_created_at: string;
+	library_updated_at: string;
+
+	// Game metadata fields
+	title: string;
+	year: number | null;
+	min_players: number | null;
+	max_players: number | null;
+	play_time_min: number | null;
+	play_time_max: number | null;
+	box_art_url: string | null;
+	description: string | null;
+	categories: string[] | null;
+	bgg_rating: number | null;
+	bgg_rank: number | null;
+	suggested_age: number | null;
+	game_created_at: string;
+	game_updated_at: string;
+}
+
+/**
  * Transform snake_case DB record to camelCase for app
  */
 export function transformLibraryGame(dbLibraryGame: DbLibraryGame): LibraryGame {
@@ -104,6 +192,124 @@ export function transformLibraryGameInput(
 	if (data.review !== undefined) result.review = data.review;
 
 	return result;
+}
+
+/**
+ * Transform DbUserGameView (JOIN with embedded games relation) to UserGameView
+ * Used when querying with Supabase's relation select: library_games.select('*, games(*)')
+ */
+export function transformUserGameView(dbRow: DbUserGameView): UserGameView {
+	const game = transformGame(dbRow.games);
+	return {
+		// Library entry identifiers
+		libraryEntryId: dbRow.id,
+		gameId: dbRow.game_id,
+		userId: dbRow.user_id,
+
+		// Shared game metadata
+		title: game.title,
+		year: game.year,
+		minPlayers: game.minPlayers,
+		maxPlayers: game.maxPlayers,
+		playTimeMin: game.playTimeMin,
+		playTimeMax: game.playTimeMax,
+		boxArtUrl: game.boxArtUrl,
+		description: game.description,
+		categories: game.categories,
+		bggRating: game.bggRating,
+		bggRank: game.bggRank,
+		suggestedAge: game.suggestedAge,
+
+		// User-specific data
+		playCount: dbRow.play_count,
+		personalRating: dbRow.personal_rating,
+		review: dbRow.review,
+
+		// Timestamps
+		gameCreatedAt: game.createdAt,
+		gameUpdatedAt: game.updatedAt,
+		libraryEntryCreatedAt: dbRow.created_at,
+		libraryEntryUpdatedAt: dbRow.updated_at
+	};
+}
+
+/**
+ * Transform DbUserGameViewFlat (flattened JOIN result) to UserGameView
+ * Used for manual SQL queries with explicit column aliases
+ */
+export function transformUserGameViewFlat(dbRow: DbUserGameViewFlat): UserGameView {
+	return {
+		// Library entry identifiers
+		libraryEntryId: dbRow.library_id,
+		gameId: dbRow.game_id,
+		userId: dbRow.user_id,
+
+		// Shared game metadata
+		title: dbRow.title,
+		year: dbRow.year,
+		minPlayers: dbRow.min_players,
+		maxPlayers: dbRow.max_players,
+		playTimeMin: dbRow.play_time_min,
+		playTimeMax: dbRow.play_time_max,
+		boxArtUrl: dbRow.box_art_url,
+		description: dbRow.description,
+		categories: dbRow.categories,
+		bggRating: dbRow.bgg_rating,
+		bggRank: dbRow.bgg_rank,
+		suggestedAge: dbRow.suggested_age,
+
+		// User-specific data
+		playCount: dbRow.play_count,
+		personalRating: dbRow.personal_rating,
+		review: dbRow.review,
+
+		// Timestamps
+		gameCreatedAt: dbRow.game_created_at,
+		gameUpdatedAt: dbRow.game_updated_at,
+		libraryEntryCreatedAt: dbRow.library_created_at,
+		libraryEntryUpdatedAt: dbRow.library_updated_at
+	};
+}
+
+/**
+ * Combine separate Game and LibraryGame objects into UserGameView
+ * Useful when you already have both objects loaded separately
+ */
+export function combineGameAndLibraryEntry(
+	game: Game,
+	libraryEntry: LibraryGame
+): UserGameView {
+	return {
+		// Library entry identifiers
+		libraryEntryId: libraryEntry.id,
+		gameId: game.id,
+		userId: libraryEntry.userId,
+
+		// Shared game metadata
+		title: game.title,
+		year: game.year,
+		minPlayers: game.minPlayers,
+		maxPlayers: game.maxPlayers,
+		playTimeMin: game.playTimeMin,
+		playTimeMax: game.playTimeMax,
+		boxArtUrl: game.boxArtUrl,
+		description: game.description,
+		categories: game.categories,
+		bggRating: game.bggRating,
+		bggRank: game.bggRank,
+		suggestedAge: game.suggestedAge,
+
+		// User-specific data
+		playCount: libraryEntry.playCount,
+		personalRating: libraryEntry.personalRating,
+		review: libraryEntry.review,
+
+		// Timestamps
+		gameCreatedAt: game.createdAt,
+		gameUpdatedAt: game.updatedAt,
+		libraryEntryCreatedAt: libraryEntry.createdAt,
+		libraryEntryUpdatedAt: libraryEntry.updatedAt
+	};
 }
 
 /**
