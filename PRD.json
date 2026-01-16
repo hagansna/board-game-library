@@ -952,7 +952,7 @@
 				"Include optional fields for play_count, rating, review",
 				"Test adding game from search results"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 41,
