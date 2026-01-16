@@ -942,15 +942,19 @@
 				"User can select a game to add to their library",
 				"Selected game creates library_games entry",
 				"Optional: set initial play_count, rating, review on add",
-				"Success redirects to library page with new entry visible"
+				"Success redirects to library page with new entry visible",
+				"REMOVED: All game creation fields (title, year, players, etc.)",
+				"No option to create new catalog entries - search/select only"
 			],
 			"steps": [
-				"Replace add game form with search interface",
+				"Replace add game form with search-only interface",
+				"Remove all game metadata input fields (title, year, players, etc.)",
 				"Add server action to search shared catalog",
 				"Display search results as selectable list",
 				"Add form action to add selected game to library",
 				"Include optional fields for play_count, rating, review",
-				"Test adding game from search results"
+				"Test adding game from search results",
+				"Verify no way to create new catalog entry from this page"
 			],
 			"passes": true
 		},
@@ -1005,16 +1009,20 @@
 				"System searches shared catalog for matching game",
 				"If match found: display match for user confirmation",
 				"User confirms match: creates library_games entry",
-				"If no match: display 'Game not in catalog' message",
-				"User can search catalog manually if AI match is wrong"
+				"If no match: display 'Game not in catalog' message only",
+				"REMOVED: 'Will create new' option and all create-game functionality for non-admin users",
+				"User can search catalog manually if AI match is wrong",
+				"No way for regular users to add games to the shared catalog"
 			],
 			"steps": [
 				"Keep existing AI analysis flow",
 				"After AI extraction, search catalog by title",
 				"Display match results with confidence indicator",
 				"Add 'Confirm and Add' action for matched games",
-				"Add 'Not Found' state with manual search option",
-				"Test with games in catalog and games not in catalog"
+				"Remove 'Will create new' button and create-game form from upload flow",
+				"Add 'Not Found' state with message only (no create option)",
+				"Test with games in catalog - verify can add to library",
+				"Test with games NOT in catalog - verify cannot create new catalog entry"
 			],
 			"passes": true
 		},
