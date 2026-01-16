@@ -14,7 +14,8 @@
 		"lint": "prettier --check . && eslint .",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"backfill:age": "npx tsx scripts/backfill-suggested-age.ts"
+		"backfill:age": "npx tsx scripts/backfill-suggested-age.ts",
+		"migrate:split-schema": "npx tsx scripts/migrate-to-split-schema.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",
