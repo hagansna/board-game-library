@@ -1039,7 +1039,7 @@
 				"Log progress and summary",
 				"Test with development data before production"
 			],
-			"passes": false
+			"passes": true
 		}
 	]
 }
