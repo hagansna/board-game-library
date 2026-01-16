@@ -1,9 +1,57 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/**
+ * Shared Games Catalog Module
+ *
+ * This module handles shared game metadata that is common to all users.
+ * User-specific data (play_count, personal_rating, review) is stored in library_games table.
+ *
+ * The games table contains only shared metadata and is readable by all authenticated users.
+ * INSERT/UPDATE/DELETE operations are restricted to admin or service role.
+ *
+ * Database Schema (user must update in Supabase):
+ * ```sql
+ * -- Remove user-specific columns from games table if they exist
+ * -- Note: Migrate data to library_games first before running this!
+ * ALTER TABLE games DROP COLUMN IF EXISTS user_id;
+ * ALTER TABLE games DROP COLUMN IF EXISTS play_count;
+ * ALTER TABLE games DROP COLUMN IF EXISTS personal_rating;
+ * ALTER TABLE games DROP COLUMN IF EXISTS review;
+ *
+ * -- Update RLS policies for shared game catalog
+ * DROP POLICY IF EXISTS "Users can view own games" ON games;
+ * DROP POLICY IF EXISTS "Users can insert own games" ON games;
+ * DROP POLICY IF EXISTS "Users can update own games" ON games;
+ * DROP POLICY IF EXISTS "Users can delete own games" ON games;
+ *
+ * -- Allow all authenticated users to read games
+ * CREATE POLICY "Authenticated users can view all games"
+ *   ON games FOR SELECT
+ *   TO authenticated
+ *   USING (true);
+ *
+ * -- Restrict write operations to service role (admin)
+ * CREATE POLICY "Service role can insert games"
+ *   ON games FOR INSERT
+ *   TO service_role
+ *   WITH CHECK (true);
+ *
+ * CREATE POLICY "Service role can update games"
+ *   ON games FOR UPDATE
+ *   TO service_role
+ *   USING (true);
+ *
+ * CREATE POLICY "Service role can delete games"
+ *   ON games FOR DELETE
+ *   TO service_role
+ *   USING (true);
+ * ```
+ */
+
 // Database game type (snake_case from Supabase)
-interface DbGame {
+// Contains only shared game metadata - no user-specific fields
+export interface DbGame {
 	id: string;
-	user_id: string;
 	title: string;
 	year: number | null;
 	min_players: number | null;
@@ -16,14 +64,12 @@ interface DbGame {
 	bgg_rating: number | null;
 	bgg_rank: number | null;
 	suggested_age: number | null;
-	play_count: number | null;
-	review: string | null;
-	personal_rating: number | null;
 	created_at: string;
 	updated_at: string;
 }
 
 // App game type (camelCase for frontend)
+// Contains only shared game metadata - no user-specific fields
 export interface Game {
 	id: string;
 	title: string;
@@ -38,14 +84,12 @@ export interface Game {
 	bggRating: number | null;
 	bggRank: number | null;
 	suggestedAge: number | null;
-	playCount: number | null;
-	review: string | null;
-	personalRating: number | null;
 	createdAt: string;
 	updatedAt: string;
 }
 
-// Input type for creating/updating games
+// Input type for creating/updating games (shared metadata only)
+// User-specific fields are handled by LibraryGameInput in library-games.ts
 export interface GameInput {
 	title: string;
 	year?: number | null;
@@ -59,13 +103,11 @@ export interface GameInput {
 	bggRating?: number | null;
 	bggRank?: number | null;
 	suggestedAge?: number | null;
-	playCount?: number | null;
-	review?: string | null;
-	personalRating?: number | null;
 }
 
 // Transform snake_case DB record to camelCase for app
-function transformGame(game: DbGame): Game {
+// Only maps shared game metadata fields
+export function transformGame(game: DbGame): Game {
 	return {
 		id: game.id,
 		title: game.title,
@@ -80,16 +122,14 @@ function transformGame(game: DbGame): Game {
 		bggRating: game.bgg_rating,
 		bggRank: game.bgg_rank,
 		suggestedAge: game.suggested_age,
-		playCount: game.play_count,
-		review: game.review,
-		personalRating: game.personal_rating,
 		createdAt: game.created_at,
 		updatedAt: game.updated_at
 	};
 }
 
 // Transform camelCase input to snake_case for DB
-function transformInput(data: GameInput): Record<string, unknown> {
+// Only maps shared game metadata fields (no user-specific fields)
+export function transformInput(data: GameInput): Record<string, unknown> {
 	const result: Record<string, unknown> = {
 		title: data.title
 	};
@@ -104,9 +144,6 @@ function transformInput(data: GameInput): Record<string, unknown> {
 	if (data.bggRating !== undefined) result.bgg_rating = data.bggRating;
 	if (data.bggRank !== undefined) result.bgg_rank = data.bggRank;
 	if (data.suggestedAge !== undefined) result.suggested_age = data.suggestedAge;
-	if (data.playCount !== undefined) result.play_count = data.playCount;
-	if (data.review !== undefined) result.review = data.review;
-	if (data.personalRating !== undefined) result.personal_rating = data.personalRating;
 
 	// Parse categories JSON string to array for JSONB column
 	if (data.categories !== undefined) {
@@ -125,10 +162,10 @@ function transformInput(data: GameInput): Record<string, unknown> {
 }
 
 /**
- * Get all games for a specific user, sorted alphabetically by title
- * RLS ensures only user's games are returned
+ * Get all games from the shared catalog, sorted alphabetically by title
+ * All authenticated users can read from the shared catalog
  */
-export async function getUserGames(supabase: SupabaseClient): Promise<Game[]> {
+export async function getAllGames(supabase: SupabaseClient): Promise<Game[]> {
 	const { data, error } = await supabase
 		.from('games')
 		.select('*')
@@ -143,8 +180,31 @@ export async function getUserGames(supabase: SupabaseClient): Promise<Game[]> {
 }
 
 /**
- * Get a single game by ID
- * RLS ensures user can only access their own games
+ * Search games by title (case-insensitive partial match)
+ * All authenticated users can search the shared catalog
+ */
+export async function searchGames(
+	supabase: SupabaseClient,
+	query: string
+): Promise<Game[]> {
+	const { data, error } = await supabase
+		.from('games')
+		.select('*')
+		.ilike('title', `%${query}%`)
+		.order('title', { ascending: true })
+		.limit(50);
+
+	if (error) {
+		console.error('Error searching games:', error);
+		return [];
+	}
+
+	return (data as DbGame[]).map(transformGame);
+}
+
+/**
+ * Get a single game by ID from the shared catalog
+ * All authenticated users can access any game in the catalog
  */
 export async function getGameById(supabase: SupabaseClient, gameId: string): Promise<Game | null> {
 	const { data, error } = await supabase.from('games').select('*').eq('id', gameId).single();
@@ -157,17 +217,15 @@ export async function getGameById(supabase: SupabaseClient, gameId: string): Pro
 }
 
 /**
- * Create a new game for a user
+ * Create a new game in the shared catalog
+ * Requires service role or admin privileges
+ * No user_id - games are shared across all users
  */
-export async function createGame(
+export async function createSharedGame(
 	supabase: SupabaseClient,
-	userId: string,
 	data: GameInput
 ): Promise<Game | null> {
-	const dbData = {
-		...transformInput(data),
-		user_id: userId
-	};
+	const dbData = transformInput(data);
 
 	const { data: game, error } = await supabase.from('games').insert(dbData).select().single();
 
@@ -180,10 +238,10 @@ export async function createGame(
 }
 
 /**
- * Update an existing game
- * RLS ensures user can only update their own games
+ * Update an existing game in the shared catalog
+ * Requires service role or admin privileges
  */
-export async function updateGame(
+export async function updateSharedGame(
 	supabase: SupabaseClient,
 	gameId: string,
 	data: GameInput
@@ -206,10 +264,11 @@ export async function updateGame(
 }
 
 /**
- * Delete a game
- * RLS ensures user can only delete their own games
+ * Delete a game from the shared catalog
+ * Requires service role or admin privileges
+ * WARNING: This will cascade delete all library_games entries referencing this game
  */
-export async function deleteGame(supabase: SupabaseClient, gameId: string): Promise<boolean> {
+export async function deleteSharedGame(supabase: SupabaseClient, gameId: string): Promise<boolean> {
 	const { error } = await supabase.from('games').delete().eq('id', gameId);
 
 	if (error) {
@@ -220,41 +279,61 @@ export async function deleteGame(supabase: SupabaseClient, gameId: string): Prom
 	return true;
 }
 
+// ============================================================================
+// LEGACY FUNCTIONS - For backward compatibility during migration
+// These will be removed once the schema split migration is complete
+// ============================================================================
+
 /**
- * Update the play count for a game (increment or decrement)
- * RLS ensures user can only update their own games
+ * @deprecated Use getAllGames() instead. This alias exists for backward compatibility.
  */
-export async function updatePlayCount(
+export async function getUserGames(supabase: SupabaseClient): Promise<Game[]> {
+	return getAllGames(supabase);
+}
+
+/**
+ * @deprecated Use createSharedGame() instead. This function signature is kept for backward compatibility.
+ * The userId parameter is ignored - games are now shared.
+ */
+export async function createGame(
+	supabase: SupabaseClient,
+	_userId: string,
+	data: GameInput
+): Promise<Game | null> {
+	return createSharedGame(supabase, data);
+}
+
+/**
+ * @deprecated Use updateSharedGame() instead. This alias exists for backward compatibility.
+ */
+export async function updateGame(
 	supabase: SupabaseClient,
 	gameId: string,
-	delta: number
+	data: GameInput
+): Promise<Game | null> {
+	return updateSharedGame(supabase, gameId, data);
+}
+
+/**
+ * @deprecated Use deleteSharedGame() instead. This alias exists for backward compatibility.
+ */
+export async function deleteGame(supabase: SupabaseClient, gameId: string): Promise<boolean> {
+	return deleteSharedGame(supabase, gameId);
+}
+
+/**
+ * @deprecated Play count is now stored in library_games table.
+ * Use updateLibraryPlayCount from library-games.ts instead.
+ * This function is kept temporarily for backward compatibility but does nothing.
+ */
+export async function updatePlayCount(
+	_supabase: SupabaseClient,
+	_gameId: string,
+	_delta: number
 ): Promise<{ playCount: number } | null> {
-	// First get the current play count
-	const { data: game, error: fetchError } = await supabase
-		.from('games')
-		.select('play_count')
-		.eq('id', gameId)
-		.single();
-
-	if (fetchError || !game) {
-		console.error('Error fetching game for play count update:', fetchError);
-		return null;
-	}
-
-	const currentCount = game.play_count ?? 0;
-	const newCount = Math.max(0, currentCount + delta); // Ensure count doesn't go below 0
-
-	const { data: updated, error: updateError } = await supabase
-		.from('games')
-		.update({ play_count: newCount })
-		.eq('id', gameId)
-		.select('play_count')
-		.single();
-
-	if (updateError || !updated) {
-		console.error('Error updating play count:', updateError);
-		return null;
-	}
-
-	return { playCount: updated.play_count ?? 0 };
+	console.warn(
+		'updatePlayCount is deprecated. Play count is now stored in library_games table. ' +
+			'Use updateLibraryPlayCount from library-games.ts instead.'
+	);
+	return null;
 }
