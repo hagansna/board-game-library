@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { type DbGame, type Game, transformGame } from './games.js';
+import {
+	type DbGame,
+	type Game,
+	type GameInput,
+	transformGame,
+	createSharedGame,
+	getGameById
+} from './games.js';
 
 /**
  * Library Games Module
@@ -544,6 +551,102 @@ export async function isGameInLibrary(
 	}
 
 	return true;
+}
+
+/**
+ * Add a game to the catalog and the user's library in one operation
+ * This is used when adding a new game that doesn't exist in the catalog yet
+ * It creates the shared game record and then adds it to the user's library
+ *
+ * @param supabase - Supabase client with user session
+ * @param userId - The ID of the user adding the game
+ * @param gameData - The shared game metadata (title, year, players, etc.)
+ * @param libraryData - Optional user-specific data (playCount, personalRating, review)
+ * @returns UserGameView with the combined data, or null if failed
+ */
+export async function addGameToLibrary(
+	supabase: SupabaseClient,
+	userId: string,
+	gameData: GameInput,
+	libraryData?: Partial<Omit<LibraryGameInput, 'gameId'>>
+): Promise<UserGameView | null> {
+	// First, create the game in the shared catalog
+	const game = await createSharedGame(supabase, gameData);
+
+	if (!game) {
+		console.error('Failed to create game in catalog');
+		return null;
+	}
+
+	// Then add it to the user's library
+	const libraryInput: LibraryGameInput = {
+		gameId: game.id,
+		playCount: libraryData?.playCount ?? 0,
+		personalRating: libraryData?.personalRating ?? null,
+		review: libraryData?.review ?? null
+	};
+
+	const libraryEntry = await addToLibrary(supabase, userId, libraryInput);
+
+	if (!libraryEntry) {
+		console.error('Failed to add game to library');
+		// Note: The game was created in the catalog but library entry failed
+		// This is acceptable as the game can still be added to the library later
+		return null;
+	}
+
+	// Combine into UserGameView
+	return combineGameAndLibraryEntry(game, libraryEntry);
+}
+
+/**
+ * Add an existing game from the catalog to the user's library
+ * Use this when the game already exists in the shared catalog
+ *
+ * @param supabase - Supabase client with user session
+ * @param userId - The ID of the user adding the game
+ * @param gameId - The ID of the game in the shared catalog
+ * @param libraryData - Optional user-specific data (playCount, personalRating, review)
+ * @returns UserGameView with the combined data, or null if failed
+ */
+export async function addExistingGameToLibrary(
+	supabase: SupabaseClient,
+	userId: string,
+	gameId: string,
+	libraryData?: Partial<Omit<LibraryGameInput, 'gameId'>>
+): Promise<UserGameView | null> {
+	// First, verify the game exists in the catalog
+	const game = await getGameById(supabase, gameId);
+
+	if (!game) {
+		console.error('Game not found in catalog:', gameId);
+		return null;
+	}
+
+	// Check if already in library
+	const existing = await getLibraryEntryByGameId(supabase, gameId);
+	if (existing) {
+		console.error('Game already in library:', gameId);
+		return null;
+	}
+
+	// Add to the user's library
+	const libraryInput: LibraryGameInput = {
+		gameId: game.id,
+		playCount: libraryData?.playCount ?? 0,
+		personalRating: libraryData?.personalRating ?? null,
+		review: libraryData?.review ?? null
+	};
+
+	const libraryEntry = await addToLibrary(supabase, userId, libraryInput);
+
+	if (!libraryEntry) {
+		console.error('Failed to add game to library');
+		return null;
+	}
+
+	// Combine into UserGameView
+	return combineGameAndLibraryEntry(game, libraryEntry);
 }
 
 /**

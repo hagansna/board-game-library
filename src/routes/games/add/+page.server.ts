@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { createGame } from '$lib/server/games';
+import { addGameToLibrary } from '$lib/server/library-games';
 import { isValidImageUrl, saveBoxArtFile } from '$lib/server/boxart';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -175,25 +175,36 @@ export const actions: Actions = {
 			});
 		}
 
-		// Create game
+		// Create game in catalog and add to user's library
 		try {
-			await createGame(locals.supabase, user.id, {
-				title,
-				year,
-				minPlayers,
-				maxPlayers,
-				playTimeMin,
-				playTimeMax,
-				boxArtUrl,
-				description,
-				categories,
-				bggRating,
-				bggRank,
-				suggestedAge,
-				playCount,
-				personalRating,
-				review
-			});
+			const result = await addGameToLibrary(
+				locals.supabase,
+				user.id,
+				{
+					// Game metadata (shared catalog)
+					title,
+					year,
+					minPlayers,
+					maxPlayers,
+					playTimeMin,
+					playTimeMax,
+					boxArtUrl,
+					description,
+					categories,
+					bggRating,
+					bggRank,
+					suggestedAge
+				},
+				{
+					// User-specific library data
+					playCount,
+					personalRating,
+					review
+				}
+			);
+			if (!result) {
+				throw new Error('Failed to add game to library');
+			}
 		} catch {
 			return fail(500, {
 				title,

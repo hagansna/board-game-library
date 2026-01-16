@@ -7,7 +7,8 @@
 	import { enhance } from '$app/forms';
 
 	interface Props {
-		id: string;
+		libraryEntryId: string; // The library_games entry ID (for delete/playcount actions)
+		gameId: string; // The games table ID (for edit page)
 		title: string;
 		year?: number | null;
 		minPlayers?: number | null;
@@ -26,7 +27,8 @@
 	}
 
 	let {
-		id,
+		libraryEntryId,
+		gameId,
 		title,
 		year,
 		minPlayers,
@@ -295,7 +297,7 @@
 		{/if}
 	</Card.Content>
 	<Card.Footer class="gap-2 pt-0">
-		<Button variant="outline" size="sm" href={resolve(`/games/${id}/edit`)}>
+		<Button variant="outline" size="sm" href={resolve(`/games/${libraryEntryId}/edit`)}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="14"
@@ -366,7 +368,7 @@
 							};
 						}}
 					>
-						<input type="hidden" name="gameId" value={id} />
+						<input type="hidden" name="libraryEntryId" value={libraryEntryId} />
 						<Button type="submit" variant="destructive" disabled={isDeleting}>
 							{isDeleting ? 'Deleting...' : 'Delete'}
 						</Button>
@@ -594,7 +596,7 @@
 								};
 							}}
 						>
-							<input type="hidden" name="gameId" value={id} />
+							<input type="hidden" name="libraryEntryId" value={libraryEntryId} />
 							<Button
 								type="submit"
 								variant="outline"
@@ -651,7 +653,7 @@
 								};
 							}}
 						>
-							<input type="hidden" name="gameId" value={id} />
+							<input type="hidden" name="libraryEntryId" value={libraryEntryId} />
 							<Button
 								type="submit"
 								variant="outline"
@@ -704,7 +706,7 @@
 		</div>
 
 		<Dialog.Footer class="mt-6 flex-col gap-2 sm:flex-row">
-			<Button variant="outline" href={resolve(`/games/${id}/edit`)}>
+			<Button variant="outline" href={resolve(`/games/${libraryEntryId}/edit`)}>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					width="16"

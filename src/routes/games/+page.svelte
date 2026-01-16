@@ -208,8 +208,12 @@
 				});
 				break;
 			case 'recently-added':
-				// Most recent first
-				sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+				// Most recent first - use library entry created at for when it was added to user's library
+				sorted.sort(
+					(a, b) =>
+						new Date(b.libraryEntryCreatedAt).getTime() -
+						new Date(a.libraryEntryCreatedAt).getTime()
+				);
 				break;
 			case 'players':
 				// By min players (ascending), null values go to end
@@ -529,9 +533,10 @@
 		{:else}
 			<!-- Games grid -->
 			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				{#each filteredGames as game (game.id)}
+				{#each filteredGames as game (game.libraryEntryId)}
 					<GameCard
-						id={game.id}
+						libraryEntryId={game.libraryEntryId}
+						gameId={game.gameId}
 						title={game.title}
 						year={game.year}
 						minPlayers={game.minPlayers}

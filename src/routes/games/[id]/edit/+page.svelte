@@ -9,58 +9,8 @@
 
 	let { data, form } = $props();
 
-	// Get initial box art URL from form (on validation error) or from existing game data
-	let boxArtPreview = $state<string | null>(form?.boxArtUrl || data.game.boxArtUrl || null);
-	let boxArtUrlInput = $state(
-		form?.boxArtUrl || (data.game.boxArtUrl?.startsWith('/') ? '' : data.game.boxArtUrl) || ''
-	);
-	let fileInput = $state<HTMLInputElement | null>(null);
-	let removeBoxArt = $state(false);
-
-	function handleFileSelect(event: Event) {
-		const target = event.target as HTMLInputElement;
-		const file = target.files?.[0];
-		if (file) {
-			// Clear URL input when file is selected
-			boxArtUrlInput = '';
-			removeBoxArt = false;
-			// Create preview URL
-			boxArtPreview = URL.createObjectURL(file);
-		}
-	}
-
-	function handleUrlInput(event: Event) {
-		const target = event.target as HTMLInputElement;
-		boxArtUrlInput = target.value;
-		removeBoxArt = false;
-		// Clear file input when URL is entered
-		if (fileInput) {
-			fileInput.value = '';
-		}
-		if (boxArtUrlInput) {
-			boxArtPreview = boxArtUrlInput;
-		} else {
-			boxArtPreview = null;
-		}
-	}
-
-	function clearBoxArt() {
-		boxArtUrlInput = '';
-		boxArtPreview = null;
-		removeBoxArt = true;
-		if (fileInput) {
-			fileInput.value = '';
-		}
-	}
-
-	$effect(() => {
-		return () => {
-			// Cleanup object URL on component destroy
-			if (boxArtPreview && boxArtPreview.startsWith('blob:')) {
-				URL.revokeObjectURL(boxArtPreview);
-			}
-		};
-	});
+	// Get game info from the library entry (read-only display)
+	const game = data.libraryEntry;
 </script>
 
 <div class="min-h-screen bg-background p-8">
@@ -83,17 +33,115 @@
 				</svg>
 				Back
 			</Button>
-			<h1 class="text-3xl font-bold text-foreground">Edit Game</h1>
+			<h1 class="text-3xl font-bold text-foreground">Edit Library Entry</h1>
 		</div>
 
+		<!-- Game Info Card (Read-Only) -->
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Game Details</Card.Title>
-				<Card.Description>Update the information for your board game.</Card.Description>
+				<Card.Title>{game.title}</Card.Title>
+				<Card.Description>
+					Game information from the shared catalog (read-only)
+				</Card.Description>
+			</Card.Header>
+			<Card.Content class="space-y-4">
+				<!-- Box Art -->
+				{#if game.boxArtUrl}
+					<div class="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted">
+						<img
+							src={game.boxArtUrl}
+							alt="Box art for {game.title}"
+							class="h-full w-full object-contain"
+						/>
+					</div>
+				{/if}
+
+				<!-- Game Metadata Grid -->
+				<div class="grid grid-cols-2 gap-4 text-sm">
+					{#if game.year}
+						<div>
+							<span class="text-muted-foreground">Year:</span>
+							<span class="ml-2 font-medium">{game.year}</span>
+						</div>
+					{/if}
+					{#if game.minPlayers || game.maxPlayers}
+						<div>
+							<span class="text-muted-foreground">Players:</span>
+							<span class="ml-2 font-medium">
+								{#if game.minPlayers && game.maxPlayers}
+									{game.minPlayers === game.maxPlayers
+										? `${game.minPlayers}`
+										: `${game.minPlayers}-${game.maxPlayers}`}
+								{:else if game.minPlayers}
+									{game.minPlayers}+
+								{:else}
+									Up to {game.maxPlayers}
+								{/if}
+							</span>
+						</div>
+					{/if}
+					{#if game.playTimeMin || game.playTimeMax}
+						<div>
+							<span class="text-muted-foreground">Play Time:</span>
+							<span class="ml-2 font-medium">
+								{#if game.playTimeMin && game.playTimeMax}
+									{game.playTimeMin === game.playTimeMax
+										? `${game.playTimeMin} min`
+										: `${game.playTimeMin}-${game.playTimeMax} min`}
+								{:else if game.playTimeMin}
+									{game.playTimeMin}+ min
+								{:else}
+									Up to {game.playTimeMax} min
+								{/if}
+							</span>
+						</div>
+					{/if}
+					{#if game.suggestedAge}
+						<div>
+							<span class="text-muted-foreground">Ages:</span>
+							<span class="ml-2 font-medium">{game.suggestedAge}+</span>
+						</div>
+					{/if}
+					{#if game.bggRating}
+						<div>
+							<span class="text-muted-foreground">BGG Rating:</span>
+							<span class="ml-2 font-medium">{game.bggRating.toFixed(1)}</span>
+						</div>
+					{/if}
+					{#if game.bggRank}
+						<div>
+							<span class="text-muted-foreground">BGG Rank:</span>
+							<span class="ml-2 font-medium">#{game.bggRank}</span>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Categories -->
+				{#if game.categories && game.categories.length > 0}
+					<div class="flex flex-wrap gap-1">
+						{#each game.categories as category}
+							<span class="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+								{category}
+							</span>
+						{/each}
+					</div>
+				{/if}
+
+				<!-- Description -->
+				{#if game.description}
+					<p class="text-sm text-muted-foreground">{game.description}</p>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+
+		<!-- Personal Tracking Card (Editable) -->
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Your Personal Stats</Card.Title>
+				<Card.Description>Update your personal tracking information for this game.</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<form method="POST" enctype="multipart/form-data" use:enhance class="space-y-6">
-					<input type="hidden" name="removeBoxArt" value={removeBoxArt ? 'true' : 'false'} />
+				<form method="POST" use:enhance class="space-y-6">
 					{#if form?.error}
 						<div class="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
 							{form.error}
@@ -101,282 +149,44 @@
 					{/if}
 
 					<div class="space-y-2">
-						<Label for="title">Title <span class="text-destructive">*</span></Label>
+						<Label for="playCount">Play Count</Label>
 						<Input
-							id="title"
-							name="title"
-							type="text"
-							placeholder="e.g., Catan"
-							value={form?.title ?? data.game.title}
-							required
-						/>
-						{#if form?.errors?.title}
-							<p class="text-sm text-destructive">{form.errors.title}</p>
-						{/if}
-					</div>
-
-					<div class="space-y-2">
-						<Label for="year">Year Published</Label>
-						<Input
-							id="year"
-							name="year"
+							id="playCount"
+							name="playCount"
 							type="number"
-							placeholder="e.g., 1995"
-							value={form?.year ?? data.game.year ?? ''}
-							min="1"
-							max={new Date().getFullYear() + 1}
+							min="0"
+							placeholder="e.g., 5"
+							value={form?.playCount ?? game.playCount ?? ''}
 						/>
-						{#if form?.errors?.year}
-							<p class="text-sm text-destructive">{form.errors.year}</p>
+						<p class="text-xs text-muted-foreground">How many times you've played this game</p>
+						{#if form?.errors?.playCount}
+							<p class="text-sm text-destructive">{form.errors.playCount}</p>
 						{/if}
 					</div>
 
 					<div class="space-y-2">
-						<Label>Player Count</Label>
-						<div class="flex items-center gap-2">
-							<Input
-								id="minPlayers"
-								name="minPlayers"
-								type="number"
-								placeholder="Min"
-								value={form?.minPlayers ?? data.game.minPlayers ?? ''}
-								min="1"
-								class="flex-1"
-							/>
-							<span class="text-muted-foreground">to</span>
-							<Input
-								id="maxPlayers"
-								name="maxPlayers"
-								type="number"
-								placeholder="Max"
-								value={form?.maxPlayers ?? data.game.maxPlayers ?? ''}
-								min="1"
-								class="flex-1"
-							/>
-						</div>
-						{#if form?.errors?.players}
-							<p class="text-sm text-destructive">{form.errors.players}</p>
+						<Label>Personal Rating</Label>
+						<StarRating
+							value={form?.personalRating ? parseInt(form.personalRating) : game.personalRating}
+							name="personalRating"
+						/>
+						<p class="text-xs text-muted-foreground">Your personal rating (1-5 stars)</p>
+						{#if form?.errors?.personalRating}
+							<p class="text-sm text-destructive">{form.errors.personalRating}</p>
 						{/if}
 					</div>
 
 					<div class="space-y-2">
-						<Label>Play Time (minutes)</Label>
-						<div class="flex items-center gap-2">
-							<Input
-								id="playTimeMin"
-								name="playTimeMin"
-								type="number"
-								placeholder="Min"
-								value={form?.playTimeMin ?? data.game.playTimeMin ?? ''}
-								min="1"
-								class="flex-1"
-							/>
-							<span class="text-muted-foreground">to</span>
-							<Input
-								id="playTimeMax"
-								name="playTimeMax"
-								type="number"
-								placeholder="Max"
-								value={form?.playTimeMax ?? data.game.playTimeMax ?? ''}
-								min="1"
-								class="flex-1"
-							/>
-						</div>
-						{#if form?.errors?.playTime}
-							<p class="text-sm text-destructive">{form.errors.playTime}</p>
-						{/if}
-					</div>
-
-					<div class="space-y-4">
-						<Label>Box Art (optional)</Label>
-						<div class="space-y-3">
-							<div class="space-y-2">
-								<Label for="boxArtUrl" class="text-sm text-muted-foreground">Image URL</Label>
-								<Input
-									id="boxArtUrl"
-									name="boxArtUrl"
-									type="url"
-									placeholder="https://example.com/image.jpg"
-									value={boxArtUrlInput}
-									oninput={handleUrlInput}
-								/>
-							</div>
-							<div class="flex items-center gap-2">
-								<div class="h-px flex-1 bg-border"></div>
-								<span class="text-xs text-muted-foreground">OR</span>
-								<div class="h-px flex-1 bg-border"></div>
-							</div>
-							<div class="space-y-2">
-								<Label for="boxArtFile" class="text-sm text-muted-foreground">Upload File</Label>
-								<Input
-									id="boxArtFile"
-									name="boxArtFile"
-									type="file"
-									accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-									bind:this={fileInput}
-									onchange={handleFileSelect}
-									class="cursor-pointer"
-								/>
-								<p class="text-xs text-muted-foreground">Max 5MB. JPG, PNG, or WebP.</p>
-							</div>
-						</div>
-						{#if boxArtPreview}
-							<div class="relative mt-4">
-								<img
-									src={boxArtPreview}
-									alt="Box art preview"
-									class="h-48 w-auto rounded-md border object-contain"
-									onerror={() => (boxArtPreview = null)}
-								/>
-								<Button
-									type="button"
-									variant="destructive"
-									size="sm"
-									class="absolute top-2 right-2"
-									onclick={clearBoxArt}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="16"
-										height="16"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-									>
-										<path d="M18 6 6 18" />
-										<path d="m6 6 12 12" />
-									</svg>
-								</Button>
-							</div>
-						{/if}
-						{#if form?.errors?.boxArt}
-							<p class="text-sm text-destructive">{form.errors.boxArt}</p>
-						{/if}
-					</div>
-
-					<div class="space-y-2">
-						<Label for="description">Description</Label>
+						<Label for="review">Personal Review</Label>
 						<textarea
-							id="description"
-							name="description"
-							placeholder="Brief description of the game..."
-							rows="3"
-							class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-							>{form?.description ?? data.game.description ?? ''}</textarea
+							id="review"
+							name="review"
+							placeholder="Your thoughts on the game..."
+							rows="4"
+							class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+							>{form?.review ?? game.review ?? ''}</textarea
 						>
-					</div>
-
-					<div class="space-y-2">
-						<Label for="categories">Categories</Label>
-						<Input
-							id="categories"
-							name="categories"
-							type="text"
-							placeholder="e.g., strategy, trading, family (comma-separated)"
-							value={form?.categories ??
-								(data.game.categories ? data.game.categories.join(', ') : '')}
-						/>
-						<p class="text-xs text-muted-foreground">Separate categories with commas</p>
-					</div>
-
-					<div class="space-y-2">
-						<Label for="suggestedAge">Suggested Age</Label>
-						<Input
-							id="suggestedAge"
-							name="suggestedAge"
-							type="number"
-							min="1"
-							max="21"
-							placeholder="e.g., 10"
-							value={form?.suggestedAge ?? data.game.suggestedAge ?? ''}
-						/>
-						<p class="text-xs text-muted-foreground">Minimum recommended age (e.g., 8 for "Ages 8+")</p>
-						{#if form?.errors?.suggestedAge}
-							<p class="text-sm text-destructive">{form.errors.suggestedAge}</p>
-						{/if}
-					</div>
-
-					<div class="space-y-2">
-						<Label>BoardGameGeek Info</Label>
-						<div class="flex items-center gap-4">
-							<div class="flex-1 space-y-1">
-								<Label for="bggRating" class="text-sm text-muted-foreground">Rating</Label>
-								<Input
-									id="bggRating"
-									name="bggRating"
-									type="number"
-									step="0.1"
-									min="0"
-									max="10"
-									placeholder="e.g., 7.5"
-									value={form?.bggRating ?? data.game.bggRating ?? ''}
-								/>
-							</div>
-							<div class="flex-1 space-y-1">
-								<Label for="bggRank" class="text-sm text-muted-foreground">Rank</Label>
-								<Input
-									id="bggRank"
-									name="bggRank"
-									type="number"
-									min="1"
-									placeholder="e.g., 150"
-									value={form?.bggRank ?? data.game.bggRank ?? ''}
-								/>
-							</div>
-						</div>
-						{#if form?.errors?.bggRating}
-							<p class="text-sm text-destructive">{form.errors.bggRating}</p>
-						{/if}
-						{#if form?.errors?.bggRank}
-							<p class="text-sm text-destructive">{form.errors.bggRank}</p>
-						{/if}
-					</div>
-
-					<div class="border-t pt-6">
-						<h3 class="mb-4 text-sm font-medium text-foreground">Personal Tracking</h3>
-
-						<div class="space-y-6">
-							<div class="space-y-2">
-								<Label for="playCount">Play Count</Label>
-								<Input
-									id="playCount"
-									name="playCount"
-									type="number"
-									min="0"
-									placeholder="e.g., 5"
-									value={form?.playCount ?? data.game.playCount ?? ''}
-								/>
-								<p class="text-xs text-muted-foreground">How many times you've played this game</p>
-								{#if form?.errors?.playCount}
-									<p class="text-sm text-destructive">{form.errors.playCount}</p>
-								{/if}
-							</div>
-
-							<div class="space-y-2">
-								<Label>Personal Rating</Label>
-								<StarRating value={form?.personalRating ? parseInt(form.personalRating) : data.game.personalRating} name="personalRating" />
-								<p class="text-xs text-muted-foreground">Your personal rating (1-5 stars)</p>
-								{#if form?.errors?.personalRating}
-									<p class="text-sm text-destructive">{form.errors.personalRating}</p>
-								{/if}
-							</div>
-
-							<div class="space-y-2">
-								<Label for="review">Personal Review</Label>
-								<textarea
-									id="review"
-									name="review"
-									placeholder="Your thoughts on the game..."
-									rows="4"
-									class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-									>{form?.review ?? data.game.review ?? ''}</textarea
-								>
-								<p class="text-xs text-muted-foreground">Your personal review or notes about this game</p>
-							</div>
-						</div>
+						<p class="text-xs text-muted-foreground">Your personal review or notes about this game</p>
 					</div>
 
 					<div class="flex gap-4 pt-4">

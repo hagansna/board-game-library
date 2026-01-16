@@ -1,6 +1,6 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { getUserGames, deleteGame, updatePlayCount } from '$lib/server/games';
+import { getUserLibrary, removeFromLibrary, updateLibraryPlayCount } from '$lib/server/library-games';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
 	const { user } = await parent();
@@ -10,8 +10,9 @@ export const load: PageServerLoad = async ({ parent, locals }) => {
 		throw redirect(302, '/auth/login');
 	}
 
-	// Fetch user's games (RLS ensures only user's games are returned)
-	const games = await getUserGames(locals.supabase);
+	// Fetch user's library (JOIN of games and library_games tables)
+	// RLS ensures only user's library entries are returned
+	const games = await getUserLibrary(locals.supabase);
 
 	return {
 		games
@@ -26,17 +27,18 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const gameId = formData.get('gameId');
+		const libraryEntryId = formData.get('libraryEntryId');
 
-		if (!gameId || typeof gameId !== 'string') {
-			return fail(400, { error: 'Game ID is required' });
+		if (!libraryEntryId || typeof libraryEntryId !== 'string') {
+			return fail(400, { error: 'Library entry ID is required' });
 		}
 
-		// RLS ensures user can only delete their own games
-		const deleted = await deleteGame(locals.supabase, gameId);
+		// RLS ensures user can only delete their own library entries
+		// Note: This removes from library only, not from the shared game catalog
+		const deleted = await removeFromLibrary(locals.supabase, libraryEntryId);
 
 		if (!deleted) {
-			return fail(404, { error: 'Game not found or you do not have permission to delete it' });
+			return fail(404, { error: 'Library entry not found or you do not have permission to delete it' });
 		}
 
 		return { success: true };
@@ -49,16 +51,16 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const gameId = formData.get('gameId');
+		const libraryEntryId = formData.get('libraryEntryId');
 
-		if (!gameId || typeof gameId !== 'string') {
-			return fail(400, { error: 'Game ID is required' });
+		if (!libraryEntryId || typeof libraryEntryId !== 'string') {
+			return fail(400, { error: 'Library entry ID is required' });
 		}
 
-		const result = await updatePlayCount(locals.supabase, gameId, 1);
+		const result = await updateLibraryPlayCount(locals.supabase, libraryEntryId, 1);
 
 		if (!result) {
-			return fail(404, { error: 'Game not found or you do not have permission to update it' });
+			return fail(404, { error: 'Library entry not found or you do not have permission to update it' });
 		}
 
 		return { success: true, playCount: result.playCount };
@@ -71,16 +73,16 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const gameId = formData.get('gameId');
+		const libraryEntryId = formData.get('libraryEntryId');
 
-		if (!gameId || typeof gameId !== 'string') {
-			return fail(400, { error: 'Game ID is required' });
+		if (!libraryEntryId || typeof libraryEntryId !== 'string') {
+			return fail(400, { error: 'Library entry ID is required' });
 		}
 
-		const result = await updatePlayCount(locals.supabase, gameId, -1);
+		const result = await updateLibraryPlayCount(locals.supabase, libraryEntryId, -1);
 
 		if (!result) {
-			return fail(404, { error: 'Game not found or you do not have permission to update it' });
+			return fail(404, { error: 'Library entry not found or you do not have permission to update it' });
 		}
 
 		return { success: true, playCount: result.playCount };
