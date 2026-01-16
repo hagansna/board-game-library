@@ -845,7 +845,7 @@
 				"Create restrictive RLS policies for INSERT/UPDATE/DELETE",
 				"Verify shared games are readable by all authenticated users"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 36,
