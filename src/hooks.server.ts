@@ -28,12 +28,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 		return { session, user };
 	};
 
-	// Get session and populate user for backwards compatibility
+	// Get session and populate user with role from profiles table
 	const { user } = await event.locals.safeGetSession();
 	if (user) {
+		// Fetch role from profiles table
+		const { data: profile } = await event.locals.supabase
+			.from('profiles')
+			.select('role')
+			.eq('id', user.id)
+			.single();
+
 		event.locals.user = {
 			id: user.id,
-			email: user.email || ''
+			email: user.email || '',
+			role: (profile?.role as 'admin' | 'user') || 'user'
 		};
 	}
 

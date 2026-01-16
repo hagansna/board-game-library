@@ -1,25 +1,21 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createSharedGame, type GameInput } from '$lib/server/games';
+import { requireAdmin } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { user } = await parent();
 
-	// Redirect to login if not authenticated
-	if (!user) {
-		throw redirect(302, '/auth/login');
-	}
+	// Require admin role
+	requireAdmin(user);
 
 	return {};
 };
 
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
-		const user = locals.user;
-
-		if (!user) {
-			throw redirect(302, '/auth/login');
-		}
+		// Require admin role
+		requireAdmin(locals.user);
 
 		const formData = await request.formData();
 

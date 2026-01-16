@@ -1,14 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { getAllGames, searchGames, deleteSharedGame, type Game } from '$lib/server/games';
+import { requireAdmin } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ parent, url, locals }) => {
 	const { user } = await parent();
 
-	// Redirect to login if not authenticated
-	if (!user) {
-		throw redirect(302, '/auth/login');
-	}
+	// Require admin role
+	requireAdmin(user);
 
 	// Get search query from URL params if present
 	const searchQuery = url.searchParams.get('q') ?? '';
@@ -32,11 +31,8 @@ export const actions: Actions = {
 	 * Search the game catalog
 	 */
 	search: async ({ request, locals }) => {
-		const user = locals.user;
-
-		if (!user) {
-			throw redirect(302, '/auth/login');
-		}
+		// Require admin role
+		requireAdmin(locals.user);
 
 		const formData = await request.formData();
 		const query = formData.get('query')?.toString().trim() ?? '';
@@ -60,11 +56,8 @@ export const actions: Actions = {
 	 * Delete a game from the shared catalog
 	 */
 	delete: async ({ request, locals }) => {
-		const user = locals.user;
-
-		if (!user) {
-			throw redirect(302, '/auth/login');
-		}
+		// Require admin role
+		requireAdmin(locals.user);
 
 		const formData = await request.formData();
 		const gameId = formData.get('gameId')?.toString().trim() ?? '';
