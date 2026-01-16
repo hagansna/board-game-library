@@ -973,7 +973,7 @@
 				"Remove all game metadata form inputs",
 				"Test editing library entry"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 42,
