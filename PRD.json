@@ -994,7 +994,7 @@
 				"Wire up form actions to admin CRUD functions",
 				"Test full admin workflow: add, edit, view games"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 43,
