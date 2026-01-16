@@ -1,7 +1,12 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { analyzeGameImage, type ExtractedGameData, type MultiGameAnalysisResult } from '$lib/server/gemini';
-import { createGame } from '$lib/server/games';
+import { analyzeGameImage, type ExtractedGameData } from '$lib/server/gemini';
+import { searchGames, type Game } from '$lib/server/games';
+import {
+	addExistingGameToLibrary,
+	addGameToLibrary,
+	isGameInLibrary
+} from '$lib/server/library-games';
 
 // Allowed MIME types for image uploads
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
@@ -121,10 +126,16 @@ export const actions: Actions = {
 			});
 		}
 
+		// Extended game result type that includes catalog match info
+		interface GameWithCatalogMatch extends ExtractedGameData {
+			catalogMatch: Game | null;
+			alreadyInLibrary: boolean;
+		}
+
 		// Analyze all images - each image can now contain multiple games
 		const results: Array<{
 			success: boolean;
-			games: ExtractedGameData[];
+			games: GameWithCatalogMatch[];
 			gameCount: number;
 			error: string | null;
 			fileName: string;
@@ -161,19 +172,54 @@ export const actions: Actions = {
 				});
 			} else {
 				// Filter out games without titles (failed detections)
-				const validGames = result.games.filter(g => g.title && g.title.trim() !== '');
-				totalGamesFound += validGames.length;
+				const validGames = result.games.filter((g) => g.title && g.title.trim() !== '');
+
+				// Search the catalog for each detected game
+				const gamesWithMatches: GameWithCatalogMatch[] = [];
+				for (const game of validGames) {
+					// Search catalog by exact title first
+					const searchResults = await searchGames(locals.supabase, game.title!);
+
+					// Find exact match (case-insensitive) or close match
+					let catalogMatch: Game | null = null;
+					if (searchResults.length > 0) {
+						// Try exact match first
+						const exactMatch = searchResults.find(
+							(r) => r.title.toLowerCase() === game.title!.toLowerCase()
+						);
+						if (exactMatch) {
+							catalogMatch = exactMatch;
+						} else {
+							// Otherwise use first search result as close match
+							catalogMatch = searchResults[0];
+						}
+					}
+
+					// Check if the matched game is already in user's library
+					let alreadyInLibrary = false;
+					if (catalogMatch) {
+						alreadyInLibrary = await isGameInLibrary(locals.supabase, catalogMatch.id);
+					}
+
+					gamesWithMatches.push({
+						...game,
+						catalogMatch,
+						alreadyInLibrary
+					});
+				}
+
+				totalGamesFound += gamesWithMatches.length;
 				results.push({
 					success: true,
-					games: validGames,
-					gameCount: validGames.length,
+					games: gamesWithMatches,
+					gameCount: gamesWithMatches.length,
 					error: null,
 					fileName: image.fileName
 				});
 			}
 		}
 
-		// Return all results with multi-game support
+		// Return all results with multi-game and catalog match support
 		return {
 			batchAnalyzed: true,
 			results,
@@ -198,7 +244,17 @@ export const actions: Actions = {
 			});
 		}
 
-		let games: ExtractedGameData[];
+		// Extended type with catalog match info
+		interface GameWithCatalogMatch extends ExtractedGameData {
+			catalogMatch?: {
+				id: string;
+				title: string;
+				[key: string]: unknown;
+			} | null;
+			alreadyInLibrary?: boolean;
+		}
+
+		let games: GameWithCatalogMatch[];
 		try {
 			games = JSON.parse(gamesJson);
 		} catch {
@@ -215,6 +271,7 @@ export const actions: Actions = {
 
 		// Add all selected games
 		const addedGames: string[] = [];
+		const skippedGames: string[] = [];
 		const errors: string[] = [];
 
 		for (const gameData of games) {
@@ -224,34 +281,75 @@ export const actions: Actions = {
 				continue;
 			}
 
+			// Skip games already in library
+			if (gameData.alreadyInLibrary) {
+				skippedGames.push(gameData.title);
+				continue;
+			}
+
 			try {
-				// Parse categories if present
-				let categories: string | null = null;
-				if (gameData.categories && Array.isArray(gameData.categories)) {
-					categories = JSON.stringify(gameData.categories);
+				if (gameData.catalogMatch && gameData.catalogMatch.id) {
+					// Game exists in catalog - add to library using existing catalog entry
+					const result = await addExistingGameToLibrary(
+						locals.supabase,
+						locals.user.id,
+						gameData.catalogMatch.id,
+						{
+							playCount: 0,
+							personalRating: null,
+							review: null
+						}
+					);
+
+					if (result) {
+						addedGames.push(gameData.catalogMatch.title || gameData.title);
+					} else {
+						errors.push(`Failed to add ${gameData.title} to library`);
+					}
+				} else {
+					// Game not in catalog - create new catalog entry and add to library
+					// Parse categories if present
+					let categories: string | null = null;
+					if (gameData.categories && Array.isArray(gameData.categories)) {
+						categories = JSON.stringify(gameData.categories);
+					}
+
+					const result = await addGameToLibrary(
+						locals.supabase,
+						locals.user.id,
+						{
+							title: gameData.title.trim(),
+							year: gameData.year,
+							minPlayers: gameData.minPlayers,
+							maxPlayers: gameData.maxPlayers,
+							playTimeMin: gameData.playTimeMin,
+							playTimeMax: gameData.playTimeMax,
+							description: gameData.description,
+							categories,
+							bggRating: gameData.bggRating,
+							bggRank: gameData.bggRank,
+							suggestedAge: gameData.suggestedAge
+						},
+						{
+							playCount: 0,
+							personalRating: null,
+							review: null
+						}
+					);
+
+					if (result) {
+						addedGames.push(gameData.title);
+					} else {
+						errors.push(`Failed to add ${gameData.title}`);
+					}
 				}
-
-				await createGame(locals.supabase, locals.user.id, {
-					title: gameData.title.trim(),
-					year: gameData.year,
-					minPlayers: gameData.minPlayers,
-					maxPlayers: gameData.maxPlayers,
-					playTimeMin: gameData.playTimeMin,
-					playTimeMax: gameData.playTimeMax,
-					description: gameData.description,
-					categories,
-					bggRating: gameData.bggRating,
-					bggRank: gameData.bggRank
-				});
-
-				addedGames.push(gameData.title);
 			} catch (error) {
-				console.error('Error creating game:', error);
+				console.error('Error adding game:', error);
 				errors.push(`Failed to add ${gameData.title}`);
 			}
 		}
 
-		if (addedGames.length === 0) {
+		if (addedGames.length === 0 && skippedGames.length === 0) {
 			return fail(500, {
 				addError: 'Failed to add any games. Please try again.'
 			});
@@ -261,7 +359,9 @@ export const actions: Actions = {
 		return {
 			added: true,
 			addedCount: addedGames.length,
-			addedGames
+			addedGames,
+			skippedCount: skippedGames.length,
+			skippedGames
 		};
 	},
 
@@ -376,19 +476,45 @@ export const actions: Actions = {
 		}
 
 		try {
-			// Create the game in the database
-			await createGame(locals.supabase, locals.user.id, {
-				title: title!,
-				year,
-				minPlayers,
-				maxPlayers,
-				playTimeMin,
-				playTimeMax,
-				description,
-				categories,
-				bggRating,
-				bggRank
-			});
+			// Create the game in the catalog and add to library
+			const result = await addGameToLibrary(
+				locals.supabase,
+				locals.user.id,
+				{
+					title: title!,
+					year,
+					minPlayers,
+					maxPlayers,
+					playTimeMin,
+					playTimeMax,
+					description,
+					categories,
+					bggRating,
+					bggRank
+				},
+				{
+					playCount: 0,
+					personalRating: null,
+					review: null
+				}
+			);
+
+			if (!result) {
+				return fail(500, {
+					addError: 'Failed to add game to library. Please try again.',
+					title,
+					publisher,
+					year: yearStr,
+					minPlayers: minPlayersStr,
+					maxPlayers: maxPlayersStr,
+					playTimeMin: playTimeMinStr,
+					playTimeMax: playTimeMaxStr,
+					description,
+					categories: categoriesStr,
+					bggRating: bggRatingStr,
+					bggRank: bggRankStr
+				});
+			}
 
 			// Return success - the client will redirect
 			return {
@@ -411,5 +537,41 @@ export const actions: Actions = {
 				bggRank: bggRankStr
 			});
 		}
+	},
+
+	/**
+	 * Search the catalog for matching games manually
+	 */
+	searchCatalog: async ({ request, locals }) => {
+		// Check authentication
+		if (!locals.user) {
+			throw redirect(302, '/auth/login');
+		}
+
+		const formData = await request.formData();
+		const query = formData.get('query')?.toString().trim() ?? '';
+
+		if (!query) {
+			return {
+				searchResults: [],
+				searchQuery: ''
+			};
+		}
+
+		// Search the shared catalog
+		const results = await searchGames(locals.supabase, query);
+
+		// Check which games are already in the user's library
+		const resultsWithLibraryStatus = await Promise.all(
+			results.map(async (game) => ({
+				...game,
+				alreadyInLibrary: await isGameInLibrary(locals.supabase, game.id)
+			}))
+		);
+
+		return {
+			catalogSearchResults: resultsWithLibraryStatus,
+			catalogSearchQuery: query
+		};
 	}
 };

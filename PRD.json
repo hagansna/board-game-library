@@ -1016,7 +1016,7 @@
 				"Add 'Not Found' state with manual search option",
 				"Test with games in catalog and games not in catalog"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 44,

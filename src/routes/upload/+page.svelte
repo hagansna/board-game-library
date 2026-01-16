@@ -7,6 +7,13 @@
 	import { resolve } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import type { ExtractedGameData } from '$lib/server/gemini';
+	import type { Game } from '$lib/server/games';
+
+	// Extended type for games with catalog match info
+	interface GameWithCatalogMatch extends ExtractedGameData {
+		catalogMatch: Game | null;
+		alreadyInLibrary: boolean;
+	}
 
 	let { form } = $props();
 
@@ -24,18 +31,27 @@
 	// State for uploaded images data (from server)
 	let uploadedImages = $state<Array<{ imageData: string; mimeType: string; fileName: string }>>([]);
 
-	// State for AI analysis results (multiple games per image now)
+	// State for AI analysis results (multiple games per image now, with catalog match info)
 	let analysisResults = $state<
 		Map<
 			number,
 			{
-				games: ExtractedGameData[];
+				games: GameWithCatalogMatch[];
 				gameCount: number;
 				error: string | null;
 				status: 'pending' | 'analyzing' | 'done' | 'error';
 			}
 		>
 	>(new Map());
+
+	// State for manual catalog search
+	let showCatalogSearch = $state(false);
+	let catalogSearchQuery = $state('');
+	let catalogSearchResults = $state<Array<Game & { alreadyInLibrary: boolean }>>([]);
+	let isSearchingCatalog = $state(false);
+	let selectedCatalogGame = $state<(Game & { alreadyInLibrary: boolean }) | null>(null);
+	// Track which game we're searching for (to update when user selects a match)
+	let searchingForGameKey = $state<string | null>(null);
 
 	// State for manual entry mode (when AI fails or user chooses to skip AI)
 	let manualEntryMode = $state(false);
@@ -302,9 +318,10 @@
 	function getAllGames(): Array<{
 		imageIndex: number;
 		gameIndex: number;
-		data: ExtractedGameData;
+		data: GameWithCatalogMatch;
 	}> {
-		const allGames: Array<{ imageIndex: number; gameIndex: number; data: ExtractedGameData }> = [];
+		const allGames: Array<{ imageIndex: number; gameIndex: number; data: GameWithCatalogMatch }> =
+			[];
 		for (const [imageIndex, result] of analysisResults.entries()) {
 			if (result.status === 'done' && result.games) {
 				result.games.forEach((game, gameIndex) => {
@@ -315,6 +332,101 @@
 			}
 		}
 		return allGames;
+	}
+
+	// Count games that have catalog matches
+	function getGamesWithCatalogMatchCount(): number {
+		let count = 0;
+		for (const result of analysisResults.values()) {
+			if (result.status === 'done' && result.games) {
+				count += result.games.filter((g) => g.catalogMatch !== null && !g.alreadyInLibrary).length;
+			}
+		}
+		return count;
+	}
+
+	// Count games not in catalog (need to be created)
+	function getGamesNotInCatalogCount(): number {
+		let count = 0;
+		for (const result of analysisResults.values()) {
+			if (result.status === 'done' && result.games) {
+				count += result.games.filter(
+					(g) => !isAIRecognitionFailed(g) && g.catalogMatch === null
+				).length;
+			}
+		}
+		return count;
+	}
+
+	// Count games already in library
+	function getGamesAlreadyInLibraryCount(): number {
+		let count = 0;
+		for (const result of analysisResults.values()) {
+			if (result.status === 'done' && result.games) {
+				count += result.games.filter((g) => g.alreadyInLibrary).length;
+			}
+		}
+		return count;
+	}
+
+	// Open manual catalog search for a specific game
+	function openCatalogSearchForGame(imageIndex: number, gameIndex: number) {
+		const result = analysisResults.get(imageIndex);
+		if (result?.games && result.games[gameIndex]) {
+			// Pre-fill search with AI-detected title
+			catalogSearchQuery = result.games[gameIndex].title || '';
+			showCatalogSearch = true;
+			selectedCatalogGame = null;
+			catalogSearchResults = [];
+			searchingForGameKey = getGameKey(imageIndex, gameIndex);
+		}
+	}
+
+	// Apply selected catalog match to a game
+	function applyCatalogMatchToGame(catalogGame: Game & { alreadyInLibrary: boolean }) {
+		if (!searchingForGameKey) return;
+
+		const [imageIndexStr, gameIndexStr] = searchingForGameKey.split('-');
+		const imageIndex = parseInt(imageIndexStr, 10);
+		const gameIndex = parseInt(gameIndexStr, 10);
+
+		const result = analysisResults.get(imageIndex);
+		if (result?.games && result.games[gameIndex]) {
+			// Update the game with the catalog match
+			const newGames = [...result.games];
+			newGames[gameIndex] = {
+				...newGames[gameIndex],
+				catalogMatch: catalogGame,
+				alreadyInLibrary: catalogGame.alreadyInLibrary
+			};
+
+			const newResults = new Map(analysisResults);
+			newResults.set(imageIndex, {
+				...result,
+				games: newGames
+			});
+			analysisResults = newResults;
+
+			// Update selection state based on library status
+			if (catalogGame.alreadyInLibrary) {
+				// Remove from selection if already in library
+				const newSelected = new Set(selectedGames);
+				newSelected.delete(searchingForGameKey);
+				selectedGames = newSelected;
+			}
+		}
+
+		// Close the search modal
+		closeCatalogSearch();
+	}
+
+	// Close catalog search
+	function closeCatalogSearch() {
+		showCatalogSearch = false;
+		catalogSearchQuery = '';
+		catalogSearchResults = [];
+		selectedCatalogGame = null;
+		searchingForGameKey = null;
 	}
 
 	// Get images count that had games detected
@@ -380,7 +492,7 @@
 			analysisResults = newResults;
 		}
 
-		// Handle batch analysis results (now with multi-game support)
+		// Handle batch analysis results (now with multi-game and catalog match support)
 		if (form.batchAnalyzed && form.results && Array.isArray(form.results)) {
 			const newResults = new Map(analysisResults);
 			for (let i = 0; i < form.results.length; i++) {
@@ -388,7 +500,7 @@
 				if (result.success && result.games && result.games.length > 0) {
 					// Filter out games without valid titles
 					const validGames = result.games.filter(
-						(g: ExtractedGameData) => !isAIRecognitionFailed(g)
+						(g: GameWithCatalogMatch) => !isAIRecognitionFailed(g)
 					);
 					if (validGames.length > 0) {
 						newResults.set(i, {
@@ -416,6 +528,16 @@
 			}
 			analysisResults = newResults;
 			showBatchReview = true;
+		}
+
+		// Handle catalog search results
+		if (form.catalogSearchResults) {
+			catalogSearchResults = form.catalogSearchResults;
+			isSearchingCatalog = false;
+		}
+		if (form.catalogSearchQuery !== undefined) {
+			// Search was performed but no need to update query
+			isSearchingCatalog = false;
 		}
 
 		// Handle successful game addition - redirect to library
@@ -539,9 +661,9 @@
 		selectedGames = new Set();
 	}
 
-	// Get selected games data for form submission
-	function getSelectedGamesData(): ExtractedGameData[] {
-		const games: ExtractedGameData[] = [];
+	// Get selected games data for form submission (includes catalog match info)
+	function getSelectedGamesData(): GameWithCatalogMatch[] {
+		const games: GameWithCatalogMatch[] = [];
 		for (const key of selectedGames) {
 			const [imageIndexStr, gameIndexStr] = key.split('-');
 			const imageIndex = parseInt(imageIndexStr, 10);
@@ -1227,57 +1349,183 @@
 												{:else}
 													<!-- Display mode for this game -->
 													<div
-														class="flex items-start gap-3 p-3 {isSelected ? 'bg-primary/5' : ''}"
+														class="flex items-start gap-3 p-3 {isSelected
+															? 'bg-primary/5'
+															: ''} {game.alreadyInLibrary ? 'opacity-60' : ''}"
 													>
 														<input
 															type="checkbox"
 															checked={isSelected}
 															onchange={() => toggleGameSelection(imageIndex, gameIndex)}
 															class="mt-1 h-4 w-4 rounded border-input"
+															disabled={game.alreadyInLibrary}
 														/>
 														<div class="min-w-0 flex-1">
 															<div class="flex items-start justify-between gap-2">
 																<div class="min-w-0 flex-1">
 																	<p class="truncate font-medium text-foreground">
-																		{game.title}
+																		{game.catalogMatch ? game.catalogMatch.title : game.title}
 																	</p>
 																	<p class="text-sm text-muted-foreground">
-																		{#if game.year}
-																			{game.year}
+																		{#if game.catalogMatch?.year ?? game.year}
+																			{game.catalogMatch?.year ?? game.year}
 																		{/if}
-																		{#if game.minPlayers || game.maxPlayers}
+																		{#if (game.catalogMatch?.minPlayers ?? game.minPlayers) || (game.catalogMatch?.maxPlayers ?? game.maxPlayers)}
 																			<span class="mx-1">|</span>
-																			{game.minPlayers ?? '?'}-{game.maxPlayers ?? '?'} players
+																			{game.catalogMatch?.minPlayers ??
+																				game.minPlayers ??
+																				'?'}-{game.catalogMatch?.maxPlayers ??
+																				game.maxPlayers ??
+																				'?'} players
 																		{/if}
-																		{#if game.playTimeMin || game.playTimeMax}
+																		{#if (game.catalogMatch?.playTimeMin ?? game.playTimeMin) || (game.catalogMatch?.playTimeMax ?? game.playTimeMax)}
 																			<span class="mx-1">|</span>
-																			{game.playTimeMin ?? '?'}-{game.playTimeMax ?? '?'} min
+																			{game.catalogMatch?.playTimeMin ??
+																				game.playTimeMin ??
+																				'?'}-{game.catalogMatch?.playTimeMax ??
+																				game.playTimeMax ??
+																				'?'} min
 																		{/if}
 																	</p>
+																	<!-- Catalog match status -->
+																	<div class="mt-1 flex flex-wrap items-center gap-2">
+																		{#if game.alreadyInLibrary}
+																			<span
+																				class="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+																			>
+																				<svg
+																					xmlns="http://www.w3.org/2000/svg"
+																					width="12"
+																					height="12"
+																					viewBox="0 0 24 24"
+																					fill="none"
+																					stroke="currentColor"
+																					stroke-width="2"
+																					stroke-linecap="round"
+																					stroke-linejoin="round"><path d="M20 6 9 17l-5-5" /></svg
+																				>
+																				Already in library
+																			</span>
+																		{:else if game.catalogMatch}
+																			<span
+																				class="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400"
+																			>
+																				<svg
+																					xmlns="http://www.w3.org/2000/svg"
+																					width="12"
+																					height="12"
+																					viewBox="0 0 24 24"
+																					fill="none"
+																					stroke="currentColor"
+																					stroke-width="2"
+																					stroke-linecap="round"
+																					stroke-linejoin="round"
+																					><path d="M3 3h18v18H3z" /><path d="M3 9h18" /><path
+																						d="M9 21V9"
+																					/></svg
+																				>
+																				Found in catalog
+																			</span>
+																		{:else}
+																			<span
+																				class="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400"
+																			>
+																				<svg
+																					xmlns="http://www.w3.org/2000/svg"
+																					width="12"
+																					height="12"
+																					viewBox="0 0 24 24"
+																					fill="none"
+																					stroke="currentColor"
+																					stroke-width="2"
+																					stroke-linecap="round"
+																					stroke-linejoin="round"
+																					><path d="M12 5v14" /><path d="M5 12h14" /></svg
+																				>
+																				Will create new
+																			</span>
+																		{/if}
+																	</div>
 																</div>
 																<div class="flex shrink-0 items-center gap-2">
-																	<button
-																		type="button"
-																		onclick={() => startEditingGame(imageIndex, gameIndex)}
-																		class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-																		aria-label="Edit {game.title}"
-																		title="Edit game details"
-																	>
-																		<svg
-																			xmlns="http://www.w3.org/2000/svg"
-																			width="14"
-																			height="14"
-																			viewBox="0 0 24 24"
-																			fill="none"
-																			stroke="currentColor"
-																			stroke-width="2"
-																			stroke-linecap="round"
-																			stroke-linejoin="round"
-																		>
-																			<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-																			<path d="m15 5 4 4" />
-																		</svg>
-																	</button>
+																	{#if !game.alreadyInLibrary}
+																		{#if !game.catalogMatch}
+																			<!-- Search catalog button for games not in catalog -->
+																			<button
+																				type="button"
+																				onclick={() =>
+																					openCatalogSearchForGame(imageIndex, gameIndex)}
+																				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+																				aria-label="Search catalog for {game.title}"
+																				title="Search catalog"
+																			>
+																				<svg
+																					xmlns="http://www.w3.org/2000/svg"
+																					width="14"
+																					height="14"
+																					viewBox="0 0 24 24"
+																					fill="none"
+																					stroke="currentColor"
+																					stroke-width="2"
+																					stroke-linecap="round"
+																					stroke-linejoin="round"
+																				>
+																					<circle cx="11" cy="11" r="8" />
+																					<path d="m21 21-4.3-4.3" />
+																				</svg>
+																			</button>
+																			<!-- Edit button for games not in catalog -->
+																			<button
+																				type="button"
+																				onclick={() => startEditingGame(imageIndex, gameIndex)}
+																				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+																				aria-label="Edit {game.title}"
+																				title="Edit game details"
+																			>
+																				<svg
+																					xmlns="http://www.w3.org/2000/svg"
+																					width="14"
+																					height="14"
+																					viewBox="0 0 24 24"
+																					fill="none"
+																					stroke="currentColor"
+																					stroke-width="2"
+																					stroke-linecap="round"
+																					stroke-linejoin="round"
+																				>
+																					<path
+																						d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"
+																					/>
+																					<path d="m15 5 4 4" />
+																				</svg>
+																			</button>
+																		{:else}
+																			<!-- Search catalog button to find a different match -->
+																			<button
+																				type="button"
+																				onclick={() =>
+																					openCatalogSearchForGame(imageIndex, gameIndex)}
+																				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+																				aria-label="Search for different match"
+																				title="Find different match"
+																			>
+																				<svg
+																					xmlns="http://www.w3.org/2000/svg"
+																					width="14"
+																					height="14"
+																					viewBox="0 0 24 24"
+																					fill="none"
+																					stroke="currentColor"
+																					stroke-width="2"
+																					stroke-linecap="round"
+																					stroke-linejoin="round"
+																				>
+																					<circle cx="11" cy="11" r="8" />
+																					<path d="m21 21-4.3-4.3" />
+																				</svg>
+																			</button>
+																		{/if}
+																	{/if}
 																	<span
 																		class="rounded-full px-2 py-0.5 text-xs font-medium {getConfidenceBadgeClass(
 																			game.confidence
@@ -1647,3 +1895,167 @@
 		</Card.Root>
 	</div>
 </div>
+
+<!-- Catalog Search Modal -->
+{#if showCatalogSearch}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="catalog-search-title"
+		onclick={(e) => {
+			if (e.target === e.currentTarget) closeCatalogSearch();
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') closeCatalogSearch();
+		}}
+	>
+		<div class="mx-4 w-full max-w-lg rounded-lg bg-background p-6 shadow-xl">
+			<div class="mb-4 flex items-center justify-between">
+				<h2 id="catalog-search-title" class="text-lg font-semibold text-foreground">
+					Search Game Catalog
+				</h2>
+				<button
+					type="button"
+					onclick={closeCatalogSearch}
+					class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+					aria-label="Close"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+					>
+						<path d="M18 6 6 18" />
+						<path d="m6 6 12 12" />
+					</svg>
+				</button>
+			</div>
+
+			<form
+				method="POST"
+				action="?/searchCatalog"
+				use:enhance={() => {
+					isSearchingCatalog = true;
+					return async ({ update }) => {
+						await update();
+						isSearchingCatalog = false;
+					};
+				}}
+				class="space-y-4"
+			>
+				<div class="flex gap-2">
+					<Input
+						type="text"
+						name="query"
+						placeholder="Search by game title..."
+						bind:value={catalogSearchQuery}
+						class="flex-1"
+					/>
+					<Button type="submit" disabled={isSearchingCatalog || !catalogSearchQuery.trim()}>
+						{#if isSearchingCatalog}
+							<svg
+								class="h-4 w-4 animate-spin"
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<circle
+									class="opacity-25"
+									cx="12"
+									cy="12"
+									r="10"
+									stroke="currentColor"
+									stroke-width="4"
+								></circle>
+								<path
+									class="opacity-75"
+									fill="currentColor"
+									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+								></path>
+							</svg>
+						{:else}
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								width="16"
+								height="16"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<circle cx="11" cy="11" r="8" />
+								<path d="m21 21-4.3-4.3" />
+							</svg>
+						{/if}
+					</Button>
+				</div>
+			</form>
+
+			<!-- Search Results -->
+			{#if catalogSearchResults.length > 0}
+				<div class="mt-4 max-h-80 space-y-2 overflow-y-auto">
+					<p class="text-sm text-muted-foreground">
+						{catalogSearchResults.length} result{catalogSearchResults.length !== 1 ? 's' : ''} found
+					</p>
+					{#each catalogSearchResults as game}
+						<button
+							type="button"
+							onclick={() => applyCatalogMatchToGame(game)}
+							disabled={game.alreadyInLibrary}
+							class="w-full rounded-lg border p-3 text-left transition-colors
+								{game.alreadyInLibrary
+								? 'cursor-not-allowed opacity-60'
+								: 'hover:border-primary hover:bg-muted/50'}"
+						>
+							<div class="flex items-start justify-between gap-2">
+								<div class="min-w-0 flex-1">
+									<p class="font-medium text-foreground">{game.title}</p>
+									<p class="text-sm text-muted-foreground">
+										{#if game.year}{game.year}{/if}
+										{#if game.minPlayers || game.maxPlayers}
+											<span class="mx-1">|</span>
+											{game.minPlayers ?? '?'}-{game.maxPlayers ?? '?'} players
+										{/if}
+										{#if game.playTimeMin || game.playTimeMax}
+											<span class="mx-1">|</span>
+											{game.playTimeMin ?? '?'}-{game.playTimeMax ?? '?'} min
+										{/if}
+									</p>
+								</div>
+								{#if game.alreadyInLibrary}
+									<span
+										class="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+									>
+										In library
+									</span>
+								{/if}
+							</div>
+						</button>
+					{/each}
+				</div>
+			{:else if form?.catalogSearchQuery && !isSearchingCatalog}
+				<div class="mt-4 rounded-md bg-muted p-4 text-center">
+					<p class="text-sm text-muted-foreground">
+						No games found matching "{form.catalogSearchQuery}"
+					</p>
+					<p class="mt-1 text-xs text-muted-foreground">
+						Try a different search term or create a new entry
+					</p>
+				</div>
+			{/if}
+
+			<div class="mt-4 flex justify-end gap-2">
+				<Button type="button" variant="outline" onclick={closeCatalogSearch}>Cancel</Button>
+			</div>
+		</div>
+	</div>
+{/if}
