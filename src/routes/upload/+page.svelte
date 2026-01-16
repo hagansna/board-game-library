@@ -53,8 +53,7 @@
 	// Track which game we're searching for (to update when user selects a match)
 	let searchingForGameKey = $state<string | null>(null);
 
-	// State for manual entry mode (when AI fails or user chooses to skip AI)
-	let manualEntryMode = $state(false);
+	// Manual entry mode removed - users can only add games from catalog
 
 	// State for showing batch results review
 	let showBatchReview = $state(false);
@@ -209,7 +208,6 @@
 		// Reset all analysis state
 		analysisResults = new Map();
 		uploadedImages = [];
-		manualEntryMode = false;
 		showBatchReview = false;
 		selectionInitialized = false;
 
@@ -232,18 +230,7 @@
 		editBggRank = '';
 	}
 
-	// Enter manual entry mode
-	function enterManualMode() {
-		manualEntryMode = true;
-		showBatchReview = false;
-		resetEditFields();
-	}
-
-	// Cancel manual entry and return to upload/analysis state
-	function cancelManualEntry() {
-		manualEntryMode = false;
-		resetEditFields();
-	}
+	// Manual entry functions removed - users can only add games from catalog
 
 	// Format file size for display
 	function formatFileSize(bytes: number): string {
@@ -940,7 +927,7 @@
 		</Card.Root>
 
 		<!-- AI Analysis Section - Shows after upload -->
-		{#if uploadedImages.length > 0 && !showBatchReview && !manualEntryMode}
+		{#if uploadedImages.length > 0 && !showBatchReview}
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>AI Analysis</Card.Title>
@@ -1069,28 +1056,6 @@
 								</svg>
 								Analyze {uploadedImages.length > 1 ? 'All' : 'with AI'}
 							</Button>
-
-							<div class="mt-4 border-t pt-4">
-								<p class="mb-3 text-center text-sm text-muted-foreground">Or skip AI analysis</p>
-								<Button type="button" variant="outline" onclick={enterManualMode} class="w-full">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="16"
-										height="16"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										class="mr-2"
-									>
-										<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-										<path d="m15 5 4 4" />
-									</svg>
-									Enter Manually Instead
-								</Button>
-							</div>
 						{/if}
 					</form>
 				</Card.Content>
@@ -1428,7 +1393,7 @@
 																			</span>
 																		{:else}
 																			<span
-																				class="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400"
+																				class="inline-flex items-center gap-1 rounded-full bg-orange-500/15 px-2 py-0.5 text-xs font-medium text-orange-700 dark:text-orange-400"
 																			>
 																				<svg
 																					xmlns="http://www.w3.org/2000/svg"
@@ -1440,9 +1405,9 @@
 																					stroke-width="2"
 																					stroke-linecap="round"
 																					stroke-linejoin="round"
-																					><path d="M12 5v14" /><path d="M5 12h14" /></svg
+																					><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg
 																				>
-																				Will create new
+																				Not in catalog
 																			</span>
 																		{/if}
 																	</div>
@@ -1457,7 +1422,7 @@
 																					openCatalogSearchForGame(imageIndex, gameIndex)}
 																				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
 																				aria-label="Search catalog for {game.title}"
-																				title="Search catalog"
+																				title="Search catalog to find a match"
 																			>
 																				<svg
 																					xmlns="http://www.w3.org/2000/svg"
@@ -1472,31 +1437,6 @@
 																				>
 																					<circle cx="11" cy="11" r="8" />
 																					<path d="m21 21-4.3-4.3" />
-																				</svg>
-																			</button>
-																			<!-- Edit button for games not in catalog -->
-																			<button
-																				type="button"
-																				onclick={() => startEditingGame(imageIndex, gameIndex)}
-																				class="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-																				aria-label="Edit {game.title}"
-																				title="Edit game details"
-																			>
-																				<svg
-																					xmlns="http://www.w3.org/2000/svg"
-																					width="14"
-																					height="14"
-																					viewBox="0 0 24 24"
-																					fill="none"
-																					stroke="currentColor"
-																					stroke-width="2"
-																					stroke-linecap="round"
-																					stroke-linejoin="round"
-																				>
-																					<path
-																						d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"
-																					/>
-																					<path d="m15 5 4 4" />
 																				</svg>
 																			</button>
 																		{:else}
@@ -1612,205 +1552,26 @@
 							</div>
 						</form>
 					{:else}
-						<!-- No successful results - offer manual entry -->
+						<!-- No successful results -->
 						<div class="space-y-4">
 							<div class="rounded-md bg-destructive/15 p-4 text-center">
 								<p class="text-sm text-destructive">
 									None of the images could be analyzed successfully.
+								</p>
+								<p class="mt-1 text-xs text-muted-foreground">
+									Try uploading clearer photos or search the catalog directly.
 								</p>
 							</div>
 							<div class="flex gap-4">
 								<Button type="button" variant="outline" onclick={clearAllFiles} class="flex-1">
 									Try Different Images
 								</Button>
-								<Button type="button" onclick={enterManualMode} class="flex-1">
-									Enter Manually
+								<Button href={resolve('/games/add')} class="flex-1">
+									Search Catalog
 								</Button>
 							</div>
 						</div>
 					{/if}
-				</Card.Content>
-			</Card.Root>
-		{/if}
-
-		<!-- Manual Entry Mode - Shows when user chooses to enter manually -->
-		{#if manualEntryMode}
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Enter Game Details</Card.Title>
-					<Card.Description>
-						Fill in the game information manually. Only the title is required.
-					</Card.Description>
-				</Card.Header>
-				<Card.Content>
-					<form
-						method="POST"
-						action="?/addToLibrary"
-						use:enhance={() => {
-							isAddingToLibrary = true;
-							return async ({ update }) => {
-								await update();
-								isAddingToLibrary = false;
-							};
-						}}
-						class="space-y-6"
-					>
-						{#if form?.addError}
-							<div class="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-								{form.addError}
-							</div>
-						{/if}
-
-						<div class="space-y-2">
-							<Label for="manual-title">Title <span class="text-destructive">*</span></Label>
-							<Input
-								id="manual-title"
-								name="title"
-								type="text"
-								placeholder="e.g., Catan"
-								bind:value={editTitle}
-								required
-							/>
-							{#if form?.errors?.title}
-								<p class="text-sm text-destructive">{form.errors.title}</p>
-							{/if}
-						</div>
-
-						<div class="space-y-2">
-							<Label for="manual-publisher">Publisher</Label>
-							<Input
-								id="manual-publisher"
-								name="publisher"
-								type="text"
-								placeholder="e.g., Kosmos"
-								bind:value={editPublisher}
-							/>
-						</div>
-
-						<div class="space-y-2">
-							<Label for="manual-year">Year Published</Label>
-							<Input
-								id="manual-year"
-								name="year"
-								type="number"
-								placeholder="e.g., 1995"
-								bind:value={editYear}
-								min="1"
-								max={new Date().getFullYear() + 1}
-							/>
-							{#if form?.errors?.year}
-								<p class="text-sm text-destructive">{form.errors.year}</p>
-							{/if}
-						</div>
-
-						<div class="space-y-2">
-							<Label>Player Count</Label>
-							<div class="flex items-center gap-2">
-								<Input
-									id="manual-minPlayers"
-									name="minPlayers"
-									type="number"
-									placeholder="Min"
-									bind:value={editMinPlayers}
-									min="1"
-									class="flex-1"
-								/>
-								<span class="text-muted-foreground">to</span>
-								<Input
-									id="manual-maxPlayers"
-									name="maxPlayers"
-									type="number"
-									placeholder="Max"
-									bind:value={editMaxPlayers}
-									min="1"
-									class="flex-1"
-								/>
-							</div>
-							{#if form?.errors?.players}
-								<p class="text-sm text-destructive">{form.errors.players}</p>
-							{/if}
-						</div>
-
-						<div class="space-y-2">
-							<Label>Play Time (minutes)</Label>
-							<div class="flex items-center gap-2">
-								<Input
-									id="manual-playTimeMin"
-									name="playTimeMin"
-									type="number"
-									placeholder="Min"
-									bind:value={editPlayTimeMin}
-									min="1"
-									class="flex-1"
-								/>
-								<span class="text-muted-foreground">to</span>
-								<Input
-									id="manual-playTimeMax"
-									name="playTimeMax"
-									type="number"
-									placeholder="Max"
-									bind:value={editPlayTimeMax}
-									min="1"
-									class="flex-1"
-								/>
-							</div>
-							{#if form?.errors?.playTime}
-								<p class="text-sm text-destructive">{form.errors.playTime}</p>
-							{/if}
-						</div>
-
-						<div class="flex gap-4 pt-4">
-							<Button type="button" variant="outline" onclick={cancelManualEntry} class="flex-1">
-								Cancel
-							</Button>
-							<Button
-								type="submit"
-								class="flex-1"
-								disabled={isAddingToLibrary || !editTitle.trim()}
-							>
-								{#if isAddingToLibrary}
-									<svg
-										class="mr-2 h-4 w-4 animate-spin"
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-									>
-										<circle
-											class="opacity-25"
-											cx="12"
-											cy="12"
-											r="10"
-											stroke="currentColor"
-											stroke-width="4"
-										></circle>
-										<path
-											class="opacity-75"
-											fill="currentColor"
-											d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-										></path>
-									</svg>
-									Adding...
-								{:else}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										width="16"
-										height="16"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										class="mr-2"
-									>
-										<path d="M12 5v14" />
-										<path d="M5 12h14" />
-									</svg>
-									Add to Library
-								{/if}
-							</Button>
-						</div>
-					</form>
 				</Card.Content>
 			</Card.Root>
 		{/if}
@@ -2048,7 +1809,7 @@
 						No games found matching "{form.catalogSearchQuery}"
 					</p>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Try a different search term or create a new entry
+						Try a different search term
 					</p>
 				</div>
 			{/if}

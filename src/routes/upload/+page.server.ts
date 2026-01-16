@@ -2,11 +2,7 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { analyzeGameImage, type ExtractedGameData } from '$lib/server/gemini';
 import { searchGames, type Game } from '$lib/server/games';
-import {
-	addExistingGameToLibrary,
-	addGameToLibrary,
-	isGameInLibrary
-} from '$lib/server/library-games';
+import { addExistingGameToLibrary, isGameInLibrary } from '$lib/server/library-games';
 
 // Allowed MIME types for image uploads
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/heic', 'image/heif'];
@@ -287,61 +283,30 @@ export const actions: Actions = {
 				continue;
 			}
 
+			// Only allow adding games that exist in the catalog
+			if (!gameData.catalogMatch || !gameData.catalogMatch.id) {
+				// Game not in catalog - skip (only admins can create new catalog entries)
+				skippedGames.push(gameData.title);
+				continue;
+			}
+
 			try {
-				if (gameData.catalogMatch && gameData.catalogMatch.id) {
-					// Game exists in catalog - add to library using existing catalog entry
-					const result = await addExistingGameToLibrary(
-						locals.supabase,
-						locals.user.id,
-						gameData.catalogMatch.id,
-						{
-							playCount: 0,
-							personalRating: null,
-							review: null
-						}
-					);
-
-					if (result) {
-						addedGames.push(gameData.catalogMatch.title || gameData.title);
-					} else {
-						errors.push(`Failed to add ${gameData.title} to library`);
+				// Game exists in catalog - add to library using existing catalog entry
+				const result = await addExistingGameToLibrary(
+					locals.supabase,
+					locals.user.id,
+					gameData.catalogMatch.id,
+					{
+						playCount: 0,
+						personalRating: null,
+						review: null
 					}
+				);
+
+				if (result) {
+					addedGames.push(gameData.catalogMatch.title || gameData.title);
 				} else {
-					// Game not in catalog - create new catalog entry and add to library
-					// Parse categories if present
-					let categories: string | null = null;
-					if (gameData.categories && Array.isArray(gameData.categories)) {
-						categories = JSON.stringify(gameData.categories);
-					}
-
-					const result = await addGameToLibrary(
-						locals.supabase,
-						locals.user.id,
-						{
-							title: gameData.title.trim(),
-							year: gameData.year,
-							minPlayers: gameData.minPlayers,
-							maxPlayers: gameData.maxPlayers,
-							playTimeMin: gameData.playTimeMin,
-							playTimeMax: gameData.playTimeMax,
-							description: gameData.description,
-							categories,
-							bggRating: gameData.bggRating,
-							bggRank: gameData.bggRank,
-							suggestedAge: gameData.suggestedAge
-						},
-						{
-							playCount: 0,
-							personalRating: null,
-							review: null
-						}
-					);
-
-					if (result) {
-						addedGames.push(gameData.title);
-					} else {
-						errors.push(`Failed to add ${gameData.title}`);
-					}
+					errors.push(`Failed to add ${gameData.title} to library`);
 				}
 			} catch (error) {
 				console.error('Error adding game:', error);
@@ -363,180 +328,6 @@ export const actions: Actions = {
 			skippedCount: skippedGames.length,
 			skippedGames
 		};
-	},
-
-	addToLibrary: async ({ request, locals }) => {
-		// Check authentication
-		if (!locals.user) {
-			throw redirect(302, '/auth/login');
-		}
-
-		const formData = await request.formData();
-
-		// Get form values
-		const title = (formData.get('title') as string)?.trim();
-		const publisher = (formData.get('publisher') as string)?.trim() || null;
-		const yearStr = formData.get('year') as string;
-		const minPlayersStr = formData.get('minPlayers') as string;
-		const maxPlayersStr = formData.get('maxPlayers') as string;
-		const playTimeMinStr = formData.get('playTimeMin') as string;
-		const playTimeMaxStr = formData.get('playTimeMax') as string;
-
-		// AI-enriched fields
-		const description = (formData.get('description') as string)?.trim() || null;
-		const categoriesStr = (formData.get('categories') as string)?.trim() || null;
-		const bggRatingStr = formData.get('bggRating') as string;
-		const bggRankStr = formData.get('bggRank') as string;
-
-		// Parse numeric values
-		const year = yearStr ? parseInt(yearStr, 10) : null;
-		const minPlayers = minPlayersStr ? parseInt(minPlayersStr, 10) : null;
-		const maxPlayers = maxPlayersStr ? parseInt(maxPlayersStr, 10) : null;
-		const playTimeMin = playTimeMinStr ? parseInt(playTimeMinStr, 10) : null;
-		const playTimeMax = playTimeMaxStr ? parseInt(playTimeMaxStr, 10) : null;
-
-		// Parse AI-enriched numeric values
-		const bggRating = bggRatingStr ? parseFloat(bggRatingStr) : null;
-		const bggRank = bggRankStr ? parseInt(bggRankStr, 10) : null;
-
-		// Parse categories from comma-separated string to JSON
-		let categories: string | null = null;
-		if (categoriesStr) {
-			const categoriesArray = categoriesStr
-				.split(',')
-				.map((c) => c.trim())
-				.filter((c) => c.length > 0);
-			if (categoriesArray.length > 0) {
-				categories = JSON.stringify(categoriesArray);
-			}
-		}
-
-		// Validation errors object
-		const errors: Record<string, string> = {};
-
-		// Validate title
-		if (!title) {
-			errors.title = 'Title is required';
-		}
-
-		// Validate year
-		const currentYear = new Date().getFullYear();
-		if (year !== null) {
-			if (isNaN(year) || year < 1 || year > currentYear + 1) {
-				errors.year = `Year must be between 1 and ${currentYear + 1}`;
-			}
-		}
-
-		// Validate player count
-		if (minPlayers !== null && maxPlayers !== null) {
-			if (minPlayers > maxPlayers) {
-				errors.players = 'Min players cannot be greater than max players';
-			}
-		}
-
-		// Validate play time
-		if (playTimeMin !== null && playTimeMax !== null) {
-			if (playTimeMin > playTimeMax) {
-				errors.playTime = 'Min play time cannot be greater than max play time';
-			}
-		}
-
-		// Validate BGG rating (must be between 0 and 10)
-		if (bggRating !== null) {
-			if (isNaN(bggRating) || bggRating < 0 || bggRating > 10) {
-				errors.bggRating = 'BGG Rating must be between 0 and 10';
-			}
-		}
-
-		// Validate BGG rank (must be positive integer)
-		if (bggRank !== null) {
-			if (isNaN(bggRank) || bggRank < 1) {
-				errors.bggRank = 'BGG Rank must be a positive number';
-			}
-		}
-
-		// Return validation errors if any
-		if (Object.keys(errors).length > 0) {
-			return fail(400, {
-				addError: 'Please correct the errors below',
-				errors,
-				// Preserve form values
-				title,
-				publisher,
-				year: yearStr,
-				minPlayers: minPlayersStr,
-				maxPlayers: maxPlayersStr,
-				playTimeMin: playTimeMinStr,
-				playTimeMax: playTimeMaxStr,
-				description,
-				categories: categoriesStr,
-				bggRating: bggRatingStr,
-				bggRank: bggRankStr
-			});
-		}
-
-		try {
-			// Create the game in the catalog and add to library
-			const result = await addGameToLibrary(
-				locals.supabase,
-				locals.user.id,
-				{
-					title: title!,
-					year,
-					minPlayers,
-					maxPlayers,
-					playTimeMin,
-					playTimeMax,
-					description,
-					categories,
-					bggRating,
-					bggRank
-				},
-				{
-					playCount: 0,
-					personalRating: null,
-					review: null
-				}
-			);
-
-			if (!result) {
-				return fail(500, {
-					addError: 'Failed to add game to library. Please try again.',
-					title,
-					publisher,
-					year: yearStr,
-					minPlayers: minPlayersStr,
-					maxPlayers: maxPlayersStr,
-					playTimeMin: playTimeMinStr,
-					playTimeMax: playTimeMaxStr,
-					description,
-					categories: categoriesStr,
-					bggRating: bggRatingStr,
-					bggRank: bggRankStr
-				});
-			}
-
-			// Return success - the client will redirect
-			return {
-				added: true
-			};
-		} catch (error) {
-			console.error('Error creating game:', error);
-			return fail(500, {
-				addError: 'Failed to add game to library. Please try again.',
-				title,
-				publisher,
-				year: yearStr,
-				minPlayers: minPlayersStr,
-				maxPlayers: maxPlayersStr,
-				playTimeMin: playTimeMinStr,
-				playTimeMax: playTimeMaxStr,
-				description,
-				categories: categoriesStr,
-				bggRating: bggRatingStr,
-				bggRank: bggRankStr
-			});
-		}
 	},
 
 	/**
