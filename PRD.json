@@ -908,7 +908,7 @@
 				"Update updatePlayCount() to target library_games table",
 				"Update all route handlers to use new functions"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 39,
