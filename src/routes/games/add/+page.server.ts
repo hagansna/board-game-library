@@ -90,7 +90,10 @@ export const actions: Actions = {
 
 		// Validate and parse personal rating
 		const personalRating = personalRatingStr ? parseInt(personalRatingStr, 10) : null;
-		if (personalRatingStr && (isNaN(personalRating!) || personalRating! < 1 || personalRating! > 5)) {
+		if (
+			personalRatingStr &&
+			(isNaN(personalRating!) || personalRating! < 1 || personalRating! > 5)
+		) {
 			errors.personalRating = 'Personal rating must be between 1 and 5';
 		}
 
@@ -107,16 +110,11 @@ export const actions: Actions = {
 
 		// Add the game to the user's library
 		try {
-			const result = await addExistingGameToLibrary(
-				locals.supabase,
-				user.id,
-				gameId,
-				{
-					playCount,
-					personalRating,
-					review
-				}
-			);
+			const result = await addExistingGameToLibrary(locals.supabase, user.id, gameId, {
+				playCount,
+				personalRating,
+				review
+			});
 
 			if (!result) {
 				return fail(500, {

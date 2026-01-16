@@ -760,7 +760,13 @@ describe('Story 35: Games table contains only shared game metadata', () => {
 		});
 
 		it('should include all enrichment fields', () => {
-			const enrichmentFields = ['description', 'categories', 'bgg_rating', 'bgg_rank', 'box_art_url'];
+			const enrichmentFields = [
+				'description',
+				'categories',
+				'bgg_rating',
+				'bgg_rank',
+				'box_art_url'
+			];
 
 			const dbGame: DbGame = {
 				id: 'test-id',

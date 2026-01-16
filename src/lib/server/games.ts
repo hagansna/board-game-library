@@ -183,10 +183,7 @@ export async function getAllGames(supabase: SupabaseClient): Promise<Game[]> {
  * Search games by title (case-insensitive partial match)
  * All authenticated users can search the shared catalog
  */
-export async function searchGames(
-	supabase: SupabaseClient,
-	query: string
-): Promise<Game[]> {
+export async function searchGames(supabase: SupabaseClient, query: string): Promise<Game[]> {
 	const { data, error } = await supabase
 		.from('games')
 		.select('*')

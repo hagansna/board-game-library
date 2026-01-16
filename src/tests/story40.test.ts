@@ -11,10 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-	searchGames,
-	type Game
-} from '$lib/server/games';
+import { searchGames, type Game } from '$lib/server/games';
 import {
 	addExistingGameToLibrary,
 	isGameInLibrary,
@@ -81,35 +78,27 @@ describe('Story 40: Add to library from catalog search', () => {
 	describe('Search Action Functionality', () => {
 		it('should return empty results for empty query', () => {
 			const query = '';
-			const results = mockGames.filter((g) =>
-				g.title.toLowerCase().includes(query.toLowerCase())
-			);
+			const results = mockGames.filter((g) => g.title.toLowerCase().includes(query.toLowerCase()));
 			expect(results).toHaveLength(3); // Empty string matches all
 		});
 
 		it('should search games by title (case-insensitive)', () => {
 			const query = 'catan';
-			const results = mockGames.filter((g) =>
-				g.title.toLowerCase().includes(query.toLowerCase())
-			);
+			const results = mockGames.filter((g) => g.title.toLowerCase().includes(query.toLowerCase()));
 			expect(results).toHaveLength(1);
 			expect(results[0].title).toBe('Catan');
 		});
 
 		it('should search games by partial title match', () => {
 			const query = 'ticket';
-			const results = mockGames.filter((g) =>
-				g.title.toLowerCase().includes(query.toLowerCase())
-			);
+			const results = mockGames.filter((g) => g.title.toLowerCase().includes(query.toLowerCase()));
 			expect(results).toHaveLength(1);
 			expect(results[0].title).toBe('Ticket to Ride');
 		});
 
 		it('should return empty results for non-matching query', () => {
 			const query = 'nonexistent';
-			const results = mockGames.filter((g) =>
-				g.title.toLowerCase().includes(query.toLowerCase())
-			);
+			const results = mockGames.filter((g) => g.title.toLowerCase().includes(query.toLowerCase()));
 			expect(results).toHaveLength(0);
 		});
 
@@ -464,9 +453,9 @@ describe('Story 40: Add to library from catalog search', () => {
 		});
 
 		it('should handle special characters in search query', () => {
-			const query = "Ticket to Ride: Europe";
+			const query = 'Ticket to Ride: Europe';
 			const trimmedQuery = query.trim();
-			expect(trimmedQuery).toBe("Ticket to Ride: Europe");
+			expect(trimmedQuery).toBe('Ticket to Ride: Europe');
 		});
 
 		it('should handle very long search queries', () => {

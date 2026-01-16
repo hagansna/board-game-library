@@ -402,9 +402,7 @@
 				</div>
 			{:else if boxArtUrl === null || boxArtUrl === undefined || modalImageError}
 				<!-- Placeholder when no box art -->
-				<div
-					class="flex aspect-[4/3] w-full items-center justify-center rounded-lg bg-muted"
-				>
+				<div class="flex aspect-[4/3] w-full items-center justify-center rounded-lg bg-muted">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						width="64"
@@ -544,9 +542,7 @@
 					<h3 class="mb-2 text-sm font-medium text-muted-foreground">Categories</h3>
 					<div class="flex flex-wrap gap-2">
 						{#each categoryList as category}
-							<span
-								class="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
-							>
+							<span class="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground">
 								{category}
 							</span>
 						{/each}

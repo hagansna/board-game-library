@@ -1,6 +1,10 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { getUserLibrary, removeFromLibrary, updateLibraryPlayCount } from '$lib/server/library-games';
+import {
+	getUserLibrary,
+	removeFromLibrary,
+	updateLibraryPlayCount
+} from '$lib/server/library-games';
 
 export const load: PageServerLoad = async ({ parent, locals }) => {
 	const { user } = await parent();
@@ -38,7 +42,9 @@ export const actions: Actions = {
 		const deleted = await removeFromLibrary(locals.supabase, libraryEntryId);
 
 		if (!deleted) {
-			return fail(404, { error: 'Library entry not found or you do not have permission to delete it' });
+			return fail(404, {
+				error: 'Library entry not found or you do not have permission to delete it'
+			});
 		}
 
 		return { success: true };
@@ -60,7 +66,9 @@ export const actions: Actions = {
 		const result = await updateLibraryPlayCount(locals.supabase, libraryEntryId, 1);
 
 		if (!result) {
-			return fail(404, { error: 'Library entry not found or you do not have permission to update it' });
+			return fail(404, {
+				error: 'Library entry not found or you do not have permission to update it'
+			});
 		}
 
 		return { success: true, playCount: result.playCount };
@@ -82,7 +90,9 @@ export const actions: Actions = {
 		const result = await updateLibraryPlayCount(locals.supabase, libraryEntryId, -1);
 
 		if (!result) {
-			return fail(404, { error: 'Library entry not found or you do not have permission to update it' });
+			return fail(404, {
+				error: 'Library entry not found or you do not have permission to update it'
+			});
 		}
 
 		return { success: true, playCount: result.playCount };

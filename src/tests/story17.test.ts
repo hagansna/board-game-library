@@ -31,9 +31,7 @@ function validateImageFile(file: { type: string; size: number; name: string }): 
 }
 
 // Validate multiple files and filter valid ones
-function validateMultipleFiles(
-	files: Array<{ type: string; size: number; name: string }>
-): {
+function validateMultipleFiles(files: Array<{ type: string; size: number; name: string }>): {
 	validFiles: Array<{ type: string; size: number; name: string }>;
 	errors: string[];
 } {

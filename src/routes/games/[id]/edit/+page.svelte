@@ -40,9 +40,7 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>{game.title}</Card.Title>
-				<Card.Description>
-					Game information from the shared catalog (read-only)
-				</Card.Description>
+				<Card.Description>Game information from the shared catalog (read-only)</Card.Description>
 			</Card.Header>
 			<Card.Content class="space-y-4">
 				<!-- Box Art -->
@@ -138,7 +136,8 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Your Personal Stats</Card.Title>
-				<Card.Description>Update your personal tracking information for this game.</Card.Description>
+				<Card.Description>Update your personal tracking information for this game.</Card.Description
+				>
 			</Card.Header>
 			<Card.Content>
 				<form method="POST" use:enhance class="space-y-6">
@@ -186,7 +185,9 @@
 							class="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 							>{form?.review ?? game.review ?? ''}</textarea
 						>
-						<p class="text-xs text-muted-foreground">Your personal review or notes about this game</p>
+						<p class="text-xs text-muted-foreground">
+							Your personal review or notes about this game
+						</p>
 					</div>
 
 					<div class="flex gap-4 pt-4">

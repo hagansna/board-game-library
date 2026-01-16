@@ -229,7 +229,9 @@ describe('Story 30 - Play Count, Review, and Personal Rating Data Model', () => 
 				updated_at: '2024-01-15T00:00:00Z'
 			};
 
-			expect(dbGame.review).toBe('Great game for family nights! Easy to learn but has good strategic depth.');
+			expect(dbGame.review).toBe(
+				'Great game for family nights! Easy to learn but has good strategic depth.'
+			);
 		});
 
 		it('should allow review to be null', () => {
@@ -441,7 +443,9 @@ describe('Story 30 - Play Count, Review, and Personal Rating Data Model', () => 
 				updatedAt: '2024-01-15T00:00:00Z'
 			};
 
-			expect(game.review).toBe('Love this game! Perfect for introducing new players to board games.');
+			expect(game.review).toBe(
+				'Love this game! Perfect for introducing new players to board games.'
+			);
 		});
 
 		it('should include personalRating as nullable integer field', () => {
@@ -705,7 +709,9 @@ describe('Story 30 - Play Count, Review, and Personal Rating Data Model', () => 
 			expect(game.id).toBe('game-3');
 			expect(game.title).toBe('Wingspan');
 			expect(game.playCount).toBe(35);
-			expect(game.review).toBe('One of our favorite games! Beautiful artwork and satisfying gameplay.');
+			expect(game.review).toBe(
+				'One of our favorite games! Beautiful artwork and satisfying gameplay.'
+			);
 			expect(game.personalRating).toBe(5);
 			// Verify other fields still work
 			expect(game.year).toBe(2019);

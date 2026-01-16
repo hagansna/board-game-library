@@ -82,9 +82,7 @@ function filterAndSortGames(games: Game[], searchQuery: string, currentSort: Sor
 	const filtered =
 		searchQuery.trim() === ''
 			? games
-			: games.filter((game) =>
-					game.title.toLowerCase().includes(searchQuery.toLowerCase().trim())
-				);
+			: games.filter((game) => game.title.toLowerCase().includes(searchQuery.toLowerCase().trim()));
 	return sortGames(filtered, currentSort);
 }
 
@@ -384,10 +382,7 @@ describe('Sort functionality', () => {
 		});
 
 		it('handles emoji in titles', () => {
-			const games = [
-				createGame({ title: '🎲 Dice Game' }),
-				createGame({ title: 'Azul' })
-			];
+			const games = [createGame({ title: '🎲 Dice Game' }), createGame({ title: 'Azul' })];
 			const sorted = sortGames(games, 'title-asc');
 			expect(sorted.length).toBe(2);
 		});

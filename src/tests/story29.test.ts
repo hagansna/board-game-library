@@ -246,7 +246,9 @@ describe('Story 29: Script backfills suggested age for existing games', () => {
 
 			const result = await lookupSuggestedAge(mockGenAI as never, 'Catan');
 
-			expect(mockGenerateModel(mockGenAI)).toHaveBeenCalledWith({ model: 'gemini-3-flash-preview' });
+			expect(mockGenerateModel(mockGenAI)).toHaveBeenCalledWith({
+				model: 'gemini-3-flash-preview'
+			});
 			expect(mockGenerateContent).toHaveBeenCalled();
 			expect(result).toBe(10);
 

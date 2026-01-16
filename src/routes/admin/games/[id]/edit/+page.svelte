@@ -11,9 +11,7 @@
 	let isSubmitting = $state(false);
 
 	// Initialize form values from existing game data or form submission
-	let boxArtPreviewUrl = $state(
-		form?.boxArtUrl ?? data.game.boxArtUrl ?? ''
-	);
+	let boxArtPreviewUrl = $state(form?.boxArtUrl ?? data.game.boxArtUrl ?? '');
 
 	// Convert categories array to comma-separated string for form
 	function categoriesToString(categories: string[] | null): string {
@@ -215,7 +213,8 @@
 								rows="4"
 								placeholder="Brief description of the game..."
 								class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-							>{form?.description ?? data.game.description ?? ''}</textarea>
+								>{form?.description ?? data.game.description ?? ''}</textarea
+							>
 							{#if form?.errors?.description}
 								<p class="text-sm text-destructive">{form.errors.description}</p>
 							{/if}

@@ -11,7 +11,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseMultiGameResponse, parseSingleGame, type ExtractedGameData } from '$lib/server/gemini';
+import {
+	parseMultiGameResponse,
+	parseSingleGame,
+	type ExtractedGameData
+} from '$lib/server/gemini';
 
 describe('Story 18: Multi-game detection from single image', () => {
 	describe('parseMultiGameResponse - multi-game format', () => {
@@ -403,10 +407,7 @@ describe('Story 18: Multi-game detection from single image', () => {
 			// This tests the type structure - the actual API call is mocked in integration tests
 			const mockResult = {
 				success: true,
-				games: [
-					{ title: 'Game 1' } as ExtractedGameData,
-					{ title: 'Game 2' } as ExtractedGameData
-				],
+				games: [{ title: 'Game 1' } as ExtractedGameData, { title: 'Game 2' } as ExtractedGameData],
 				gameCount: 2,
 				error: null,
 				rawResponse: '...'

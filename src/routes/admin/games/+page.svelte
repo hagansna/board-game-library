@@ -16,7 +16,10 @@
 	let gameToDelete = $state<{ id: string; title: string } | null>(null);
 	let isDeleting = $state(false);
 
-	function formatPlayerCount(game: { minPlayers?: number | null; maxPlayers?: number | null }): string {
+	function formatPlayerCount(game: {
+		minPlayers?: number | null;
+		maxPlayers?: number | null;
+	}): string {
 		if (game.minPlayers && game.maxPlayers) {
 			return game.minPlayers === game.maxPlayers
 				? `${game.minPlayers}`
@@ -27,7 +30,10 @@
 		return '-';
 	}
 
-	function formatPlayTime(game: { playTimeMin?: number | null; playTimeMax?: number | null }): string {
+	function formatPlayTime(game: {
+		playTimeMin?: number | null;
+		playTimeMax?: number | null;
+	}): string {
 		if (game.playTimeMin && game.playTimeMax) {
 			return game.playTimeMin === game.playTimeMax
 				? `${game.playTimeMin} min`
@@ -217,12 +223,22 @@
 						<table class="w-full">
 							<thead class="border-b bg-muted/50">
 								<tr>
-									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Game</th>
-									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Year</th>
-									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Players</th>
-									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Play Time</th>
-									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">BGG Rating</th>
-									<th class="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Actions</th>
+									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Game</th
+									>
+									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Year</th
+									>
+									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground"
+										>Players</th
+									>
+									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground"
+										>Play Time</th
+									>
+									<th class="px-4 py-3 text-left text-sm font-medium text-muted-foreground"
+										>BGG Rating</th
+									>
+									<th class="px-4 py-3 text-right text-sm font-medium text-muted-foreground"
+										>Actions</th
+									>
 								</tr>
 							</thead>
 							<tbody class="divide-y">
@@ -261,7 +277,9 @@
 													{#if game.categories && game.categories.length > 0}
 														<div class="flex flex-wrap gap-1 mt-0.5">
 															{#each game.categories.slice(0, 3) as category}
-																<span class="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+																<span
+																	class="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
+																>
 																	{category}
 																</span>
 															{/each}
@@ -295,7 +313,9 @@
 														fill="currentColor"
 														class="text-yellow-500"
 													>
-														<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+														<polygon
+															points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+														/>
 													</svg>
 													{game.bggRating.toFixed(1)}
 												</span>
@@ -385,9 +405,7 @@
 						<p class="mt-1 text-sm text-muted-foreground">
 							No games match "{data.searchQuery}". Try a different search term.
 						</p>
-						<Button variant="outline" class="mt-4" onclick={clearSearch}>
-							Clear Search
-						</Button>
+						<Button variant="outline" class="mt-4" onclick={clearSearch}>Clear Search</Button>
 					{:else}
 						<h2 class="mt-4 text-lg font-semibold text-foreground">No games in catalog</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
@@ -428,12 +446,11 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<div class="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-			<strong>Warning:</strong> This will permanently remove the game from the shared catalog and delete it from all users' libraries.
+			<strong>Warning:</strong> This will permanently remove the game from the shared catalog and delete
+			it from all users' libraries.
 		</div>
 		<Dialog.Footer>
-			<Button variant="outline" onclick={closeDeleteDialog} disabled={isDeleting}>
-				Cancel
-			</Button>
+			<Button variant="outline" onclick={closeDeleteDialog} disabled={isDeleting}>Cancel</Button>
 			<form
 				method="POST"
 				action="?/delete"

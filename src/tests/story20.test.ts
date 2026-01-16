@@ -490,7 +490,8 @@ describe('Story 20 - AI Enrichment with Board Game Knowledge', () => {
 				playTimeMin: 60,
 				playTimeMax: 120,
 				confidence: 'high',
-				description: 'An economic strategy game set in Birmingham during the industrial revolution.',
+				description:
+					'An economic strategy game set in Birmingham during the industrial revolution.',
 				categories: ['economic', 'strategy'],
 				bggRating: 8.6,
 				bggRank: 3

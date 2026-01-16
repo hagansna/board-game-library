@@ -4,7 +4,11 @@ import { describe, it, expect } from 'vitest';
 // These tests verify the validation rules for suggested age in add/edit game forms
 
 // Helper function to validate suggested age (mirrors server-side validation)
-function validateSuggestedAge(value: string): { isValid: boolean; error?: string; parsed: number | null } {
+function validateSuggestedAge(value: string): {
+	isValid: boolean;
+	error?: string;
+	parsed: number | null;
+} {
 	const trimmed = value.trim();
 
 	// Empty value is valid (field is optional)
@@ -185,7 +189,7 @@ describe('Story 27 - Manual Entry/Edit for Suggested Age', () => {
 		it('should accept game without suggested age', () => {
 			const gameInput = {
 				title: 'Catan',
-				year: 1995,
+				year: 1995
 				// suggestedAge not provided
 			};
 

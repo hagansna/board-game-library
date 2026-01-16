@@ -998,7 +998,7 @@ describe('Story 42: Edge cases', () => {
 	});
 
 	it('should handle special characters in title', () => {
-		const specialTitle = "Catan: Cities & Knights - 5th Edition (Special™ 日本語)";
+		const specialTitle = 'Catan: Cities & Knights - 5th Edition (Special™ 日本語)';
 		const result = validateGameForm({
 			title: specialTitle,
 			year: '',

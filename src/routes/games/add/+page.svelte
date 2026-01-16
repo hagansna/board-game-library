@@ -87,7 +87,9 @@
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>Search Game Catalog</Card.Title>
-					<Card.Description>Find a game in the shared catalog to add to your library.</Card.Description>
+					<Card.Description
+						>Find a game in the shared catalog to add to your library.</Card.Description
+					>
 				</Card.Header>
 				<Card.Content>
 					<form
@@ -271,15 +273,11 @@
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>Add to Your Library</Card.Title>
-					<Card.Description>Confirm and optionally set your initial tracking data.</Card.Description>
+					<Card.Description>Confirm and optionally set your initial tracking data.</Card.Description
+					>
 				</Card.Header>
 				<Card.Content>
-					<form
-						method="POST"
-						action="?/addFromCatalog"
-						use:enhance
-						class="space-y-6"
-					>
+					<form method="POST" action="?/addFromCatalog" use:enhance class="space-y-6">
 						{#if form?.errors?.general}
 							<div class="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
 								{form.errors.general}
@@ -407,7 +405,9 @@
 										placeholder="e.g., 5"
 										value={form?.playCount ?? ''}
 									/>
-									<p class="text-xs text-muted-foreground">How many times you've already played this game</p>
+									<p class="text-xs text-muted-foreground">
+										How many times you've already played this game
+									</p>
 									{#if form?.errors?.playCount}
 										<p class="text-sm text-destructive">{form.errors.playCount}</p>
 									{/if}
@@ -415,7 +415,10 @@
 
 								<div class="space-y-2">
 									<Label>Personal Rating</Label>
-									<StarRating value={form?.personalRating ? parseInt(form.personalRating) : null} name="personalRating" />
+									<StarRating
+										value={form?.personalRating ? parseInt(form.personalRating) : null}
+										name="personalRating"
+									/>
 									<p class="text-xs text-muted-foreground">Your personal rating (1-5 stars)</p>
 									{#if form?.errors?.personalRating}
 										<p class="text-sm text-destructive">{form.errors.personalRating}</p>
@@ -430,8 +433,11 @@
 										placeholder="Your thoughts on the game..."
 										rows="3"
 										class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-									>{form?.review ?? ''}</textarea>
-									<p class="text-xs text-muted-foreground">Your personal review or notes about this game</p>
+										>{form?.review ?? ''}</textarea
+									>
+									<p class="text-xs text-muted-foreground">
+										Your personal review or notes about this game
+									</p>
 								</div>
 							</div>
 						</div>

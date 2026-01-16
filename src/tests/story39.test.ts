@@ -340,7 +340,9 @@ describe('Story 39: Admin functions for game catalog', () => {
 					})
 				})
 			};
-			const result = await updateSharedGame(mockSupabase as any, 'game-id', { title: 'Updated Title' });
+			const result = await updateSharedGame(mockSupabase as any, 'game-id', {
+				title: 'Updated Title'
+			});
 			expect(result).not.toBeNull();
 			expect(result!.title).toBe('Updated Title');
 		});
@@ -571,7 +573,11 @@ describe('Story 39: Admin functions for game catalog', () => {
 						}),
 						eq: () => {
 							hasUserFilter = true;
-							return { ilike: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }) }) };
+							return {
+								ilike: () => ({
+									order: () => ({ limit: () => Promise.resolve({ data: [], error: null }) })
+								})
+							};
 						}
 					})
 				})
@@ -709,7 +715,8 @@ describe('Story 39: Admin functions for game catalog', () => {
 						insertedData = data;
 						return {
 							select: () => ({
-								single: () => Promise.resolve({ data: createMockDbGame({ title: 'Minimal' }), error: null })
+								single: () =>
+									Promise.resolve({ data: createMockDbGame({ title: 'Minimal' }), error: null })
 							})
 						};
 					}

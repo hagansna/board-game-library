@@ -818,9 +818,7 @@ describe('Story 34 - Library Games Table for User-Specific Game Data', () => {
 			];
 
 			const currentUserId = 'user-current';
-			const visibleToCurrentUser = allEntries.filter(
-				(entry) => entry.user_id === currentUserId
-			);
+			const visibleToCurrentUser = allEntries.filter((entry) => entry.user_id === currentUserId);
 
 			expect(visibleToCurrentUser.length).toBe(2);
 			expect(visibleToCurrentUser.every((e) => e.user_id === currentUserId)).toBe(true);

@@ -144,11 +144,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 
 			function openExpandedModal(event: { target: HTMLElement }) {
 				const target = event.target;
-				if (
-					target.closest('a[href]') ||
-					target.closest('button') ||
-					target.closest('form')
-				) {
+				if (target.closest('a[href]') || target.closest('button') || target.closest('form')) {
 					return;
 				}
 				expandedModalOpen = true;
@@ -168,11 +164,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 
 			function openExpandedModal(event: { target: HTMLElement }) {
 				const target = event.target;
-				if (
-					target.closest('a[href]') ||
-					target.closest('button') ||
-					target.closest('form')
-				) {
+				if (target.closest('a[href]') || target.closest('button') || target.closest('form')) {
 					return;
 				}
 				expandedModalOpen = true;
@@ -192,11 +184,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 
 			function openExpandedModal(event: { target: HTMLElement }) {
 				const target = event.target;
-				if (
-					target.closest('a[href]') ||
-					target.closest('button') ||
-					target.closest('form')
-				) {
+				if (target.closest('a[href]') || target.closest('button') || target.closest('form')) {
 					return;
 				}
 				expandedModalOpen = true;
@@ -216,11 +204,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 
 			function openExpandedModal(event: { target: HTMLElement }) {
 				const target = event.target;
-				if (
-					target.closest('a[href]') ||
-					target.closest('button') ||
-					target.closest('form')
-				) {
+				if (target.closest('a[href]') || target.closest('button') || target.closest('form')) {
 					return;
 				}
 				expandedModalOpen = true;
@@ -241,7 +225,11 @@ describe('Story 32: Expanded Game Modal View', () => {
 		it('should open modal on Enter key', () => {
 			let expandedModalOpen = false;
 
-			function handleKeyDown(event: { key: string; target: HTMLElement; preventDefault: () => void }) {
+			function handleKeyDown(event: {
+				key: string;
+				target: HTMLElement;
+				preventDefault: () => void;
+			}) {
 				if (event.key === 'Enter' || event.key === ' ') {
 					const target = event.target;
 					if (
@@ -267,7 +255,11 @@ describe('Story 32: Expanded Game Modal View', () => {
 		it('should open modal on Space key', () => {
 			let expandedModalOpen = false;
 
-			function handleKeyDown(event: { key: string; target: HTMLElement; preventDefault: () => void }) {
+			function handleKeyDown(event: {
+				key: string;
+				target: HTMLElement;
+				preventDefault: () => void;
+			}) {
 				if (event.key === 'Enter' || event.key === ' ') {
 					const target = event.target;
 					if (
@@ -293,7 +285,11 @@ describe('Story 32: Expanded Game Modal View', () => {
 		it('should NOT open modal on other keys', () => {
 			let expandedModalOpen = false;
 
-			function handleKeyDown(event: { key: string; target: HTMLElement; preventDefault: () => void }) {
+			function handleKeyDown(event: {
+				key: string;
+				target: HTMLElement;
+				preventDefault: () => void;
+			}) {
 				if (event.key === 'Enter' || event.key === ' ') {
 					const target = event.target;
 					if (
@@ -319,7 +315,11 @@ describe('Story 32: Expanded Game Modal View', () => {
 		it('should NOT open modal when keyboard event targets a button', () => {
 			let expandedModalOpen = false;
 
-			function handleKeyDown(event: { key: string; target: HTMLElement; preventDefault: () => void }) {
+			function handleKeyDown(event: {
+				key: string;
+				target: HTMLElement;
+				preventDefault: () => void;
+			}) {
 				if (event.key === 'Enter' || event.key === ' ') {
 					const target = event.target;
 					if (
@@ -429,8 +429,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 				personalRating: null
 			};
 
-			const hasPersonalStats =
-				game.playCount != null || game.personalRating != null || game.review;
+			const hasPersonalStats = game.playCount != null || game.personalRating != null || game.review;
 			expect(hasPersonalStats).toBe(true);
 		});
 
@@ -441,8 +440,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 				personalRating: 4
 			};
 
-			const hasPersonalStats =
-				game.playCount != null || game.personalRating != null || game.review;
+			const hasPersonalStats = game.playCount != null || game.personalRating != null || game.review;
 			expect(hasPersonalStats).toBe(true);
 		});
 
@@ -477,8 +475,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 				personalRating: 5
 			};
 
-			const hasPersonalStats =
-				game.playCount != null || game.personalRating != null || game.review;
+			const hasPersonalStats = game.playCount != null || game.personalRating != null || game.review;
 			expect(hasPersonalStats).toBe(true);
 			expect(game.playCount).toBe(10);
 			expect(game.review).toBe('Absolutely love this game!');
@@ -500,8 +497,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 			const boxArtUrl = null;
 			const modalImageError = false;
 
-			const showPlaceholder =
-				boxArtUrl === null || boxArtUrl === undefined || modalImageError;
+			const showPlaceholder = boxArtUrl === null || boxArtUrl === undefined || modalImageError;
 			expect(showPlaceholder).toBe(true);
 		});
 
@@ -509,8 +505,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 			const boxArtUrl = 'https://example.com/broken.jpg';
 			const modalImageError = true;
 
-			const showPlaceholder =
-				boxArtUrl === null || boxArtUrl === undefined || modalImageError;
+			const showPlaceholder = boxArtUrl === null || boxArtUrl === undefined || modalImageError;
 			expect(showPlaceholder).toBe(true);
 		});
 	});
@@ -628,11 +623,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 			const ids = ['abc-123', 'xyz-789', 'test-game'];
 			const urls = ids.map((id) => `/games/${id}/edit`);
 
-			expect(urls).toEqual([
-				'/games/abc-123/edit',
-				'/games/xyz-789/edit',
-				'/games/test-game/edit'
-			]);
+			expect(urls).toEqual(['/games/abc-123/edit', '/games/xyz-789/edit', '/games/test-game/edit']);
 		});
 	});
 
@@ -642,11 +633,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 			// Click handler ignores buttons and links
 			function openExpandedModal(event: { target: HTMLElement }): boolean {
 				const target = event.target;
-				if (
-					target.closest('a[href]') ||
-					target.closest('button') ||
-					target.closest('form')
-				) {
+				if (target.closest('a[href]') || target.closest('button') || target.closest('form')) {
 					return false;
 				}
 				return true;
@@ -712,8 +699,7 @@ describe('Story 32: Expanded Game Modal View', () => {
 				review: 'One of my favorites!'
 			};
 
-			const showPersonal =
-				game.personalRating != null || game.playCount != null || game.review;
+			const showPersonal = game.personalRating != null || game.playCount != null || game.review;
 			expect(showPersonal).toBe(true);
 		});
 

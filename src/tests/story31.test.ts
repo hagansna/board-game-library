@@ -8,7 +8,11 @@
 import { describe, it, expect } from 'vitest';
 
 // Helper function to validate play count
-function validatePlayCount(value: string | null | undefined): { valid: boolean; error?: string; parsedValue: number | null } {
+function validatePlayCount(value: string | null | undefined): {
+	valid: boolean;
+	error?: string;
+	parsedValue: number | null;
+} {
 	if (!value || value.trim() === '') {
 		return { valid: true, parsedValue: null };
 	}
@@ -24,7 +28,11 @@ function validatePlayCount(value: string | null | undefined): { valid: boolean; 
 }
 
 // Helper function to validate personal rating
-function validatePersonalRating(value: string | null | undefined): { valid: boolean; error?: string; parsedValue: number | null } {
+function validatePersonalRating(value: string | null | undefined): {
+	valid: boolean;
+	error?: string;
+	parsedValue: number | null;
+} {
 	if (!value || value.trim() === '') {
 		return { valid: true, parsedValue: null };
 	}
@@ -349,7 +357,9 @@ describe('Story 31: Play Count, Review, and Rating Forms', () => {
 
 			// Form error values take priority
 			const playCountValue = formError?.playCount ?? existingData.playCount ?? '';
-			const ratingValue = formError?.personalRating ? parseInt(formError.personalRating) : existingData.personalRating;
+			const ratingValue = formError?.personalRating
+				? parseInt(formError.personalRating)
+				: existingData.personalRating;
 			const reviewValue = formError?.review ?? existingData.review ?? '';
 
 			expect(playCountValue).toBe('5');
@@ -492,17 +502,19 @@ describe('Story 31: Play Count, Review, and Rating Forms', () => {
 				validatePlayCount('50'),
 				validatePlayCount('100')
 			];
-			expect(validResults.every(r => r.valid)).toBe(true);
+			expect(validResults.every((r) => r.valid)).toBe(true);
 		});
 
 		it('AC: Add/edit forms should include personal review textarea', () => {
 			// Reviews should accept any text content
 			const validReviews = [
 				processReview('Short'),
-				processReview('This is a longer review with multiple sentences. It covers various aspects of the game.'),
+				processReview(
+					'This is a longer review with multiple sentences. It covers various aspects of the game.'
+				),
 				processReview('Review with\nmultiple\nlines')
 			];
-			expect(validReviews.every(r => r !== null)).toBe(true);
+			expect(validReviews.every((r) => r !== null)).toBe(true);
 		});
 
 		it('AC: Add/edit forms should include visual star rating selector (1-5 stars)', () => {

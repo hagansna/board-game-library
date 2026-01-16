@@ -187,9 +187,7 @@ export function transformLibraryGame(dbLibraryGame: DbLibraryGame): LibraryGame 
 /**
  * Transform camelCase input to snake_case for DB
  */
-export function transformLibraryGameInput(
-	data: LibraryGameInput
-): Record<string, unknown> {
+export function transformLibraryGameInput(data: LibraryGameInput): Record<string, unknown> {
 	const result: Record<string, unknown> = {
 		game_id: data.gameId
 	};
@@ -282,10 +280,7 @@ export function transformUserGameViewFlat(dbRow: DbUserGameViewFlat): UserGameVi
  * Combine separate Game and LibraryGame objects into UserGameView
  * Useful when you already have both objects loaded separately
  */
-export function combineGameAndLibraryEntry(
-	game: Game,
-	libraryEntry: LibraryGame
-): UserGameView {
+export function combineGameAndLibraryEntry(game: Game, libraryEntry: LibraryGame): UserGameView {
 	return {
 		// Library entry identifiers
 		libraryEntryId: libraryEntry.id,
@@ -339,9 +334,7 @@ export function isValidPlayCount(count: number | null | undefined): boolean {
  * Get all library entries for the current user
  * RLS ensures only user's entries are returned
  */
-export async function getUserLibraryEntries(
-	supabase: SupabaseClient
-): Promise<LibraryGame[]> {
+export async function getUserLibraryEntries(supabase: SupabaseClient): Promise<LibraryGame[]> {
 	const { data, error } = await supabase
 		.from('library_games')
 		.select('*')
@@ -481,10 +474,7 @@ export async function removeFromLibrary(
 	supabase: SupabaseClient,
 	entryId: string
 ): Promise<boolean> {
-	const { error } = await supabase
-		.from('library_games')
-		.delete()
-		.eq('id', entryId);
+	const { error } = await supabase.from('library_games').delete().eq('id', entryId);
 
 	if (error) {
 		console.error('Error removing from library:', error);
@@ -536,10 +526,7 @@ export async function updateLibraryPlayCount(
 /**
  * Check if a game is already in the user's library
  */
-export async function isGameInLibrary(
-	supabase: SupabaseClient,
-	gameId: string
-): Promise<boolean> {
+export async function isGameInLibrary(supabase: SupabaseClient, gameId: string): Promise<boolean> {
 	const { data, error } = await supabase
 		.from('library_games')
 		.select('id')
@@ -664,9 +651,7 @@ export async function getUserLibrary(
 ): Promise<UserGameView[]> {
 	// Use Supabase relation query to get library entries with embedded game data
 	// The `games(*)` syntax fetches the related game record via the game_id foreign key
-	const { data, error } = await supabase
-		.from('library_games')
-		.select(`
+	const { data, error } = await supabase.from('library_games').select(`
 			id,
 			user_id,
 			game_id,
@@ -741,8 +726,7 @@ export async function getUserLibrary(
 		case 'recently_added':
 			userGameViews.sort(
 				(a, b) =>
-					new Date(b.libraryEntryCreatedAt).getTime() -
-					new Date(a.libraryEntryCreatedAt).getTime()
+					new Date(b.libraryEntryCreatedAt).getTime() - new Date(a.libraryEntryCreatedAt).getTime()
 			);
 			break;
 		case 'year':
@@ -781,7 +765,8 @@ export async function getLibraryEntryWithGame(
 ): Promise<UserGameView | null> {
 	const { data, error } = await supabase
 		.from('library_games')
-		.select(`
+		.select(
+			`
 			id,
 			user_id,
 			game_id,
@@ -807,7 +792,8 @@ export async function getLibraryEntryWithGame(
 				created_at,
 				updated_at
 			)
-		`)
+		`
+		)
 		.eq('id', libraryEntryId)
 		.single();
 
@@ -851,7 +837,8 @@ export async function getLibraryEntryWithGameByGameId(
 ): Promise<UserGameView | null> {
 	const { data, error } = await supabase
 		.from('library_games')
-		.select(`
+		.select(
+			`
 			id,
 			user_id,
 			game_id,
@@ -877,7 +864,8 @@ export async function getLibraryEntryWithGameByGameId(
 				created_at,
 				updated_at
 			)
-		`)
+		`
+		)
 		.eq('game_id', gameId)
 		.single();
 

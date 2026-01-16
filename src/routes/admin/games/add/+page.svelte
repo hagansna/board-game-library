@@ -42,7 +42,8 @@
 			<Card.Header>
 				<Card.Title>Game Information</Card.Title>
 				<Card.Description>
-					Add a new game to the shared catalog. All users will be able to add this game to their library.
+					Add a new game to the shared catalog. All users will be able to add this game to their
+					library.
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
@@ -204,7 +205,8 @@
 								rows="4"
 								placeholder="Brief description of the game..."
 								class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-							>{form?.description ?? ''}</textarea>
+								>{form?.description ?? ''}</textarea
+							>
 							{#if form?.errors?.description}
 								<p class="text-sm text-destructive">{form.errors.description}</p>
 							{/if}
