@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { addGameToLibrary } from '$lib/server/library-games';
-import { isValidImageUrl, saveBoxArtFile } from '$lib/server/boxart';
+import { searchGames, type Game } from '$lib/server/games';
+import { addExistingGameToLibrary, isGameInLibrary } from '$lib/server/library-games';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { user } = await parent();
@@ -15,7 +15,10 @@ export const load: PageServerLoad = async ({ parent }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, locals }) => {
+	/**
+	 * Search the shared game catalog by title
+	 */
+	search: async ({ request, locals }) => {
 		const user = locals.user;
 
 		// Redirect to login if not authenticated
@@ -24,121 +27,59 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const title = formData.get('title')?.toString().trim() ?? '';
-		const yearStr = formData.get('year')?.toString().trim() ?? '';
-		const minPlayersStr = formData.get('minPlayers')?.toString().trim() ?? '';
-		const maxPlayersStr = formData.get('maxPlayers')?.toString().trim() ?? '';
-		const playTimeMinStr = formData.get('playTimeMin')?.toString().trim() ?? '';
-		const playTimeMaxStr = formData.get('playTimeMax')?.toString().trim() ?? '';
-		const boxArtUrlInput = formData.get('boxArtUrl')?.toString().trim() ?? '';
-		const boxArtFile = formData.get('boxArtFile') as File | null;
-		const description = formData.get('description')?.toString().trim() || null;
-		const categoriesInput = formData.get('categories')?.toString().trim() ?? '';
-		const bggRatingStr = formData.get('bggRating')?.toString().trim() ?? '';
-		const bggRankStr = formData.get('bggRank')?.toString().trim() ?? '';
-		const suggestedAgeStr = formData.get('suggestedAge')?.toString().trim() ?? '';
+		const query = formData.get('query')?.toString().trim() ?? '';
+
+		if (!query) {
+			return {
+				searchResults: [] as Game[],
+				searchQuery: ''
+			};
+		}
+
+		// Search the shared catalog
+		const results = await searchGames(locals.supabase, query);
+
+		return {
+			searchResults: results,
+			searchQuery: query
+		};
+	},
+
+	/**
+	 * Add an existing game from the catalog to the user's library
+	 */
+	addFromCatalog: async ({ request, locals }) => {
+		const user = locals.user;
+
+		// Redirect to login if not authenticated
+		if (!user) {
+			throw redirect(302, '/auth/login');
+		}
+
+		const formData = await request.formData();
+		const gameId = formData.get('gameId')?.toString().trim() ?? '';
 		const playCountStr = formData.get('playCount')?.toString().trim() ?? '';
 		const personalRatingStr = formData.get('personalRating')?.toString().trim() ?? '';
 		const review = formData.get('review')?.toString().trim() || null;
 
 		const errors: {
-			title?: string;
-			year?: string;
-			players?: string;
-			playTime?: string;
-			boxArt?: string;
-			bggRating?: string;
-			bggRank?: string;
-			suggestedAge?: string;
+			gameId?: string;
 			playCount?: string;
 			personalRating?: string;
+			general?: string;
 		} = {};
 
-		// Validate title (required)
-		if (!title) {
-			errors.title = 'Title is required';
+		// Validate game ID
+		if (!gameId) {
+			errors.gameId = 'Please select a game to add';
 		}
 
-		// Parse and validate optional numeric fields
-		const year = yearStr ? parseInt(yearStr, 10) : null;
-		if (yearStr && (isNaN(year!) || year! < 1 || year! > new Date().getFullYear() + 1)) {
-			errors.year = 'Please enter a valid year';
-		}
-
-		const minPlayers = minPlayersStr ? parseInt(minPlayersStr, 10) : null;
-		const maxPlayers = maxPlayersStr ? parseInt(maxPlayersStr, 10) : null;
-
-		if (minPlayersStr && (isNaN(minPlayers!) || minPlayers! < 1)) {
-			errors.players = 'Minimum players must be at least 1';
-		}
-		if (maxPlayersStr && (isNaN(maxPlayers!) || maxPlayers! < 1)) {
-			errors.players = 'Maximum players must be at least 1';
-		}
-		if (minPlayers && maxPlayers && minPlayers > maxPlayers) {
-			errors.players = 'Minimum players cannot be greater than maximum players';
-		}
-
-		const playTimeMin = playTimeMinStr ? parseInt(playTimeMinStr, 10) : null;
-		const playTimeMax = playTimeMaxStr ? parseInt(playTimeMaxStr, 10) : null;
-
-		if (playTimeMinStr && (isNaN(playTimeMin!) || playTimeMin! < 1)) {
-			errors.playTime = 'Minimum play time must be at least 1 minute';
-		}
-		if (playTimeMaxStr && (isNaN(playTimeMax!) || playTimeMax! < 1)) {
-			errors.playTime = 'Maximum play time must be at least 1 minute';
-		}
-		if (playTimeMin && playTimeMax && playTimeMin > playTimeMax) {
-			errors.playTime = 'Minimum play time cannot be greater than maximum play time';
-		}
-
-		// Handle box art - file upload takes priority over URL
-		let boxArtUrl: string | null = null;
-
-		if (boxArtFile && boxArtFile.size > 0) {
-			// User uploaded a file
-			const uploadResult = await saveBoxArtFile(boxArtFile, user.id);
-			if (!uploadResult.success) {
-				errors.boxArt = uploadResult.error || 'Failed to upload box art';
-			} else {
-				boxArtUrl = uploadResult.url || null;
+		// Check if game is already in library
+		if (gameId) {
+			const alreadyInLibrary = await isGameInLibrary(locals.supabase, gameId);
+			if (alreadyInLibrary) {
+				errors.general = 'This game is already in your library';
 			}
-		} else if (boxArtUrlInput) {
-			// User provided a URL
-			if (!isValidImageUrl(boxArtUrlInput)) {
-				errors.boxArt = 'Please enter a valid image URL (http or https)';
-			} else {
-				boxArtUrl = boxArtUrlInput;
-			}
-		}
-
-		// Parse categories from comma-separated string to JSON array
-		let categories: string | null = null;
-		if (categoriesInput) {
-			const categoryArray = categoriesInput
-				.split(',')
-				.map((c) => c.trim())
-				.filter((c) => c.length > 0);
-			if (categoryArray.length > 0) {
-				categories = JSON.stringify(categoryArray);
-			}
-		}
-
-		// Validate and parse BGG rating
-		const bggRating = bggRatingStr ? parseFloat(bggRatingStr) : null;
-		if (bggRatingStr && (isNaN(bggRating!) || bggRating! < 0 || bggRating! > 10)) {
-			errors.bggRating = 'Rating must be between 0 and 10';
-		}
-
-		// Validate and parse BGG rank
-		const bggRank = bggRankStr ? parseInt(bggRankStr, 10) : null;
-		if (bggRankStr && (isNaN(bggRank!) || bggRank! < 1)) {
-			errors.bggRank = 'Rank must be at least 1';
-		}
-
-		// Validate and parse suggested age
-		const suggestedAge = suggestedAgeStr ? parseInt(suggestedAgeStr, 10) : null;
-		if (suggestedAgeStr && (isNaN(suggestedAge!) || suggestedAge! < 1 || suggestedAge! > 21)) {
-			errors.suggestedAge = 'Suggested age must be between 1 and 21';
 		}
 
 		// Validate and parse play count
@@ -156,18 +97,7 @@ export const actions: Actions = {
 		// Return validation errors
 		if (Object.keys(errors).length > 0) {
 			return fail(400, {
-				title,
-				year: yearStr,
-				minPlayers: minPlayersStr,
-				maxPlayers: maxPlayersStr,
-				playTimeMin: playTimeMinStr,
-				playTimeMax: playTimeMaxStr,
-				boxArtUrl: boxArtUrlInput,
-				description: description ?? '',
-				categories: categoriesInput,
-				bggRating: bggRatingStr,
-				bggRank: bggRankStr,
-				suggestedAge: suggestedAgeStr,
+				gameId,
 				playCount: playCountStr,
 				personalRating: personalRatingStr,
 				review: review ?? '',
@@ -175,58 +105,39 @@ export const actions: Actions = {
 			});
 		}
 
-		// Create game in catalog and add to user's library
+		// Add the game to the user's library
 		try {
-			const result = await addGameToLibrary(
+			const result = await addExistingGameToLibrary(
 				locals.supabase,
 				user.id,
+				gameId,
 				{
-					// Game metadata (shared catalog)
-					title,
-					year,
-					minPlayers,
-					maxPlayers,
-					playTimeMin,
-					playTimeMax,
-					boxArtUrl,
-					description,
-					categories,
-					bggRating,
-					bggRank,
-					suggestedAge
-				},
-				{
-					// User-specific library data
 					playCount,
 					personalRating,
 					review
 				}
 			);
+
 			if (!result) {
-				throw new Error('Failed to add game to library');
+				return fail(500, {
+					gameId,
+					playCount: playCountStr,
+					personalRating: personalRatingStr,
+					review: review ?? '',
+					errors: { general: 'Failed to add game to library. Please try again.' }
+				});
 			}
 		} catch {
 			return fail(500, {
-				title,
-				year: yearStr,
-				minPlayers: minPlayersStr,
-				maxPlayers: maxPlayersStr,
-				playTimeMin: playTimeMinStr,
-				playTimeMax: playTimeMaxStr,
-				boxArtUrl: boxArtUrlInput,
-				description: description ?? '',
-				categories: categoriesInput,
-				bggRating: bggRatingStr,
-				bggRank: bggRankStr,
-				suggestedAge: suggestedAgeStr,
+				gameId,
 				playCount: playCountStr,
 				personalRating: personalRatingStr,
 				review: review ?? '',
-				error: 'An error occurred while adding the game. Please try again.'
+				errors: { general: 'An error occurred while adding the game. Please try again.' }
 			});
 		}
 
-		// Redirect to library page after successful creation
+		// Redirect to library page after successful addition
 		redirect(303, '/games');
 	}
 };
