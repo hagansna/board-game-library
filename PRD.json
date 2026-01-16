@@ -887,7 +887,7 @@
 				"Update routes/games/+page.server.ts to use new function",
 				"Verify library page displays correctly"
 			],
-			"passes": false
+			"passes": true
 		},
 		{
 			"id": 38,
